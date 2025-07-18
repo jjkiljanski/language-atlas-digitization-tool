@@ -8,7 +8,7 @@ Powyższe atlasy obejmują tysiące map językowych bardzo wysokiej jakości. Li
 
 ### Na czym polega digitalizacja? Opis dla słabo programujących.
 Zwykle atlasy językowe wykorzystują jeden zbiór miejscowości, który pojawia się na wszystkich mapach. Każda mapa podaje jedną albo więcej cech językowych dla tego samego zbioru punktów. W związku z tym digitalizacja przebiegać musi w dwóch krokach:
-1. Oznaczenie na mapie każdego z punktów w atlasie (np. przez stworzenie pliku CSV z jedną kolumną zawierającą nazwę punktu i drugą zawierającą jego współrzędne (np. skopiowane z Google Maps).
+1. Oznaczenie współrzędnych każdego z punktów wykorzystywanych w atlasie (np. przez stworzenie pliku Excel z jedną kolumną zawierającą nazwę punktu, drugą zawierającą jego współrzędne punktów skopiowane z Google Maps lub z Wikipedii, a trzecią link do Wikipedii ze stroną miejscowości reprezentowanej przez punkt).
 2. Dodanie do tego samego pliku dla każdej mapy jednej kolumny. W tej kolumnie wpisuje się cechę językową w wierszach odpowiadających poszczególnym punktom z mapy.
 
 Takie dane są już bezpośrednio gotowe do dołączenia do bazy. Jeśli nie są Państwo biegli w językach programowania, służę wsparciem na każdym etapie prac związanych z digitalizacją i włączaniem punktów do bazy.
