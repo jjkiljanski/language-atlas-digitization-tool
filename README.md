@@ -1,5 +1,6 @@
-English version below.
-<img width="2048" height="1365" alt="image" src="https://github.com/user-attachments/assets/b9397e4b-d2a7-444a-a7cb-94b488d6f8be" />
+English description below.
+<img width="2159" height="1439" alt="image" src="https://github.com/user-attachments/assets/55518c32-1520-4874-9514-816b430a9c7c" />
+
 
 # Wersja Cyfrowa Atlasu Językowego Kaszubszczyzny
 ### Cel
@@ -17,6 +18,9 @@ Takie dane są już bezpośrednio gotowe do dołączenia do bazy. Jeśli nie są
 
 ### Na czym polega digitalizacja? Opis dla programujących biegle.
 (...)
+
+
+
 
 # Digital Version of the Kashubian Language Atlas
 ### The Aim
