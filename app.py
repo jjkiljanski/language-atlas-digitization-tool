@@ -34,7 +34,7 @@ app.layout = html.Div([
 
     # Top bar with title
     html.Div([
-        html.H1("Atlas Językowy Kaszubszczyzny", style={
+        html.H1("Atlas Językowy Kaszubszczyzny (Wybrane Mapy)", style={
             "margin": "0",
             "padding": "15px 30px",
             "fontWeight": "600",
@@ -156,6 +156,8 @@ def update_map_and_description(selected_column):
         },
         zoom=7,
         center={"lat": df['lat'].mean(), "lon": df['lon'].mean()}, # Best center: 53.94, 18.00
+        map_style="carto-positron",
+        opacity=0.8
     )
 
     print(f"center_lat: {df['lat'].mean()}, center_lon: {df['lon'].mean()}")
