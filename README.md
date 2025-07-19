@@ -27,5 +27,5 @@ Takie dane są już bezpośrednio gotowe do dołączenia do bazy. Jeśli nie są
 This repository serves as a proof of concept dedicated to the community of Polish linguists. Its aim is the presentation of a very easy and elegant way to digitize dialect atlases for Poland and compile them to one geo-referenced data base. The data can be easily viewed with simple GUI and/or downloaded for the purpose of quantitative research.
 
 ### The Stake
-At the moment several thousand dialect maps of very high quality exist for Poland. They comprise up to milion data points. None of this data is available for direct use for quantitative research.
+Several thousands dialect maps of very high quality exist for Poland. They comprise up to milion data points. None of this data is available for direct use for quantitative research.
 
