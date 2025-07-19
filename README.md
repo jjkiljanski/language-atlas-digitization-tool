@@ -1,4 +1,6 @@
 English version below.
+<img width="2048" height="1365" alt="image" src="https://github.com/user-attachments/assets/b9397e4b-d2a7-444a-a7cb-94b488d6f8be" />
+
 # Wersja Cyfrowa Atlasu Językowego Kaszubszczyzny
 ### Cel
 To repozytorium służy prezentacji bardzo prostej metodologii służącej digitalizacji i wizualizacji danych z atlasów językowych na przykładzie Atlasu Językowego Kaszubszczyzny. Inne atlasy obejmujące terytorium Polski to np. Atlas Gwar Polskich, Mały Atlas Gwar Polskich, Atlas językowy polskiego Podkarpacia, Atlas językowy Śląska, itp. Za przegląd istniejących atlasów służyć może publikacja "Polskie atlasy dialektologiczne i etnograficzne" autorstwa Jerzego Raichana i Kazimierza Woźniaka.
