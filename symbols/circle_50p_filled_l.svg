@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <ellipse style="stroke: rgb(0, 0, 0); stroke-width: 13px;" cx="250" cy="250" rx="141.518" ry="141.518"/>
+  <path d="M 258.666 250.481 C 258.666 319.455 311.323 375.83 377.702 379.719 L 377.702 121.243 C 311.323 125.132 258.666 181.507 258.666 250.481 Z" style="stroke-width: 13; stroke: rgb(255, 255, 255); fill: rgb(255, 255, 255); transform-origin: 318.184px 250.481px;" transform="matrix(-1, 0, 0, -1, -0.000009, -0.000024)"/>
+  <path d="M 259.147 250.962 C 259.147 319.936 311.804 376.311 378.183 380.2 L 378.183 121.724 C 311.804 125.613 259.147 181.988 259.147 250.962 Z" style="stroke-width: 13; stroke: rgb(255, 255, 255); fill: rgb(255, 255, 255); transform-origin: 318.665px 250.962px;" transform="matrix(-1, 0, 0, -1, -0.00006, 0)"/>
+</svg>

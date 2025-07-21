@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <ellipse style="stroke: rgb(0, 0, 0); stroke-width: 13px;" cx="250" cy="250" rx="141.518" ry="141.518"/>
+  <path d="M 190.482 183.206 C 190.482 252.18 243.139 308.555 309.518 312.444 L 309.518 53.968 C 243.139 57.857 190.482 114.232 190.482 183.206 Z" style="stroke-width: 13; stroke: rgb(255, 255, 255); fill: rgb(255, 255, 255); transform-origin: 250px 183.206px;" transform="matrix(0, 1, -1, 0, 0.000024, 0.000006)"/>
+</svg>

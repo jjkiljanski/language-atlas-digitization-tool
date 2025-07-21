@@ -1,0 +1,16 @@
+#legend {
+  padding: 10px;
+  font-family: sans-serif;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.legend-symbol {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}
