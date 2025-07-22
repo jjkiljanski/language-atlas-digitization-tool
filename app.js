@@ -6,6 +6,22 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 19
 }).addTo(map);
 
+const legendControl = L.control({ position: 'topright' });
+
+legendControl.onAdd = function(map) {
+  const div = L.DomUtil.create('div', 'legend-container');
+  div.id = 'legend';
+  div.style.background = 'white';
+  div.style.padding = '10px';
+  div.style.borderRadius = '6px';
+  div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+  div.style.maxWidth = '300px';
+  div.style.fontFamily = 'sans-serif';
+  return div;
+};
+
+legendControl.addTo(map);
+
 let geoLayer;
 let currentLegendMap = {};  // value → { name, symbol }
 let svgCache = {};
@@ -26,7 +42,8 @@ async function preloadAllSymbols() {
 
 // Draw legend
 function updateLegend(legendList, mapName) {
-  const container = document.getElementById("legend");
+  const container = document.querySelector('.legend-container');
+  container.innerHTML = "";
 
   // Add map name as a title
   if (mapName) {
