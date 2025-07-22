@@ -1,86 +1,68 @@
-const map = L.map("map").setView([51, 10], 6);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+const map = L.map("map").setView([54.0, 18.0], 8.2);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  attribution:
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: "abcd",
+  maxZoom: 19
+}).addTo(map);
 
 let geoLayer;
-const symbolMap = {
-  aaaaa: "circle",
-  bbbbb: "square",
-  ccccc: "triangle"
-};
-const colorMap = {
-  aaaaa: "red",
-  bbbbb: "green",
-  ccccc: "blue"
-};
+let currentLegendMap = {};  // value → { name, symbol }
+let svgCache = {};
+let metadata = [];
+let allSymbolNames = [];
 
-// Create symbol SVG
-function createSymbol(type, color) {
-  const size = 20;
-  const ns = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(ns, "svg");
-  svg.setAttribute("width", size);
-  svg.setAttribute("height", size);
+// Load and cache all symbols listed in manifest.json
+async function preloadAllSymbols() {
+  const manifest = await fetch("symbols/manifest.json").then(res => res.json());
+  allSymbolNames = manifest;
 
-  let shape;
-  switch (type) {
-    case "circle":
-      shape = document.createElementNS(ns, "circle");
-      shape.setAttribute("cx", 10);
-      shape.setAttribute("cy", 10);
-      shape.setAttribute("r", 6);
-      break;
-    case "square":
-      shape = document.createElementNS(ns, "rect");
-      shape.setAttribute("x", 4);
-      shape.setAttribute("y", 4);
-      shape.setAttribute("width", 12);
-      shape.setAttribute("height", 12);
-      break;
-    case "triangle":
-      shape = document.createElementNS(ns, "polygon");
-      shape.setAttribute("points", "10,3 17,17 3,17");
-      break;
-    default:
-      return;
+  svgCache = {};
+  for (const name of manifest) {
+    const url = `symbols/${name}.svg`;
+    svgCache[name] = await fetch(url).then(res => res.text());
   }
-
-  shape.setAttribute("fill", color);
-  svg.appendChild(shape);
-  
-  return svg;
 }
 
 // Draw legend
-function updateLegend(uniqueValues) {
+function updateLegend(legendList) {
   const container = document.getElementById("legend");
   container.innerHTML = "<h4>Legend</h4>";
 
-  uniqueValues.forEach(val => {
+  legendList.forEach(entry => {
     const item = document.createElement("div");
     item.className = "legend-item";
 
-    const symbolType = symbolMap[val] || "circle";
-    const color = colorMap[val] || "gray";
-    const sym = createSymbol(symbolType, color);
-    if (sym) {
-    sym.classList.add("legend-symbol");
-    item.appendChild(sym);
-    }
+    const symbolDiv = document.createElement("div");
+    symbolDiv.className = "legend-symbol";
+    symbolDiv.innerHTML = svgCache[entry.symbol] || "";
+    item.appendChild(symbolDiv);
 
-    sym.classList.add("legend-symbol");
-    item.appendChild(sym);
-
-    const label = document.createTextNode(val);
+    const label = document.createTextNode(entry.name || entry.value);
     item.appendChild(label);
 
     container.appendChild(item);
   });
 }
 
-// Load map and data
+// Load map and draw points
 async function loadMap(mapId) {
   const rawText = await fetch("data/data.csv").then(res => res.text());
   const csv = d3.dsvFormat(";").parse(rawText);
+
+  const mapMeta = metadata.find(m => m.map_id === mapId);
+  if (!mapMeta) return;
+
+  const legendList = mapMeta.legend || [];
+
+  // Build value → legend info
+  currentLegendMap = {};
+  legendList.forEach(entry => {
+    currentLegendMap[entry.value] = {
+      name: entry.name || entry.value,
+      symbol: entry.symbol
+    };
+  });
 
   if (geoLayer) map.removeLayer(geoLayer);
 
@@ -99,31 +81,38 @@ async function loadMap(mapId) {
     };
   });
 
-  const uniqueSymbols = [...new Set(features.map(f => f.properties.value))];
-
   geoLayer = L.geoJSON({ type: "FeatureCollection", features }, {
     pointToLayer: (feature, latlng) => {
-      const symbol = symbolMap[feature.properties.value] || "circle"; // fallback to "circle"
-      const color = colorMap[feature.properties.value] || "gray";
-
+      const val = feature.properties.value;
+      const symbolInfo = currentLegendMap[val];
+      const svg = symbolInfo ? svgCache[symbolInfo.symbol] : "";
       const div = document.createElement("div");
-      div.appendChild(createSymbol(symbol, color));
-      return L.marker(latlng, { icon: L.divIcon({ html: div.outerHTML, className: "" }) });
+      div.className = "map-symbol";
+      div.innerHTML = svg;
+      return L.marker(latlng, {
+        icon: L.divIcon({
+          html: div.outerHTML,
+          className: "",
+          iconSize: [30, 30],
+          iconAnchor: [15, 15]
+        })
+      });
     },
     onEachFeature: (feature, layer) => {
       layer.bindTooltip(`Nr: ${feature.properties.id}<br>Val: ${feature.properties.value}`);
     }
   }).addTo(map);
 
-  updateLegend(uniqueSymbols);
+  updateLegend(legendList);
 }
 
-// Load metadata and populate map selector
+// Initialize everything
 async function init() {
-  const meta = await fetch("data/metadata.json").then(res => res.json());
-  const select = document.getElementById("map-select");
+  await preloadAllSymbols(); // Load all symbols into svgCache
+  metadata = await fetch("data/metadata.json").then(res => res.json());
 
-  meta.forEach(entry => {
+  const select = document.getElementById("map-select");
+  metadata.forEach(entry => {
     const opt = document.createElement("option");
     opt.value = entry.map_id;
     opt.textContent = entry.name;
@@ -131,7 +120,7 @@ async function init() {
   });
 
   select.addEventListener("change", () => loadMap(select.value));
-  loadMap(meta[0].map_id);
+  loadMap(metadata[0].map_id);
 }
 
 init();

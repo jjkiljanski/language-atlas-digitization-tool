@@ -1,0 +1,22 @@
+[
+    "circle_25p_filled_dl",
+    "circle_25p_filled_dr",
+    "circle_25p_filled_tl",
+    "circle_25p_filled_tr",
+    "circle_50p_filled_d",
+    "circle_50p_filled_l",
+    "circle_50p_filled_r",
+    "circle_50p_filled_t",
+    "circle_75p_filled_dl_empty",
+    "circle_75p_filled_dr_empty",
+    "circle_75p_filled_tl_empty",
+    "circle_75p_filled_tr_empty",
+    "circle_empty",
+    "circle_filled",
+    "triangle_diagonal",
+    "triangle_empty",
+    "triangle_filled",
+    "vertical_rectangle_diagonal",
+    "vertical_rectangle_empty",
+    "vertical_rectangle_filled"
+]
