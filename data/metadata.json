@@ -1,9 +1,46 @@
 [
     {
+        "map_id": "XV.1",
+        "map_name": "Akcentuacja substantiwów typu żołąd(e)k, krowin(ie)c",
+        "description": "",
+        "layers": [
+            {
+                "layer_id": "0",
+                "name": "žáłʹǫdk",
+                "symbol": "vertical_rectangle_filled"
+            },
+            {
+                "layer_id": "1",
+                "name": "žʹáłǫd(e)k, žʹołǫd(e)k",
+                "symbol": "vertical_rectangle_empty"
+            },
+            {
+                "layer_id": "2",
+                "name": "žołʹǫdek",
+                "symbol": "vertical_rectangle_diagonal"
+            },
+            {
+                "layer_id": "3",
+                "name": "kárvʹińc, krovʹińc",
+                "symbol": "triangle_filled"
+            },
+            {
+                "layer_id": "4",
+                "name": "krʹoviń(e)c",
+                "symbol": "triangle_empty"
+            },
+            {
+                "layer_id": "5",
+                "name": "krov'ińec",
+                "symbol": "triangle_diagonal"
+            }
+        ]
+    },
+    {
         "map_id": "Map_1",
         "map_name": "Mapa odmian wyrazu \"koń\"",
         "description": "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
-        "legend": [
+        "layers": [
             {
                 "value": "aaaaa",
                 "name": "koń",
@@ -25,7 +62,7 @@
         "map_id": "Map_2",
         "map_name": "Mapa odmian wyrazu \"pies\"",
         "description": "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
-        "legend": [
+        "layers": [
             {
                 "value": "aaaaa",
                 "name": "pies",
@@ -47,7 +84,7 @@
         "map_id": "Map_3",
         "map_name": "Mapa odmian wyrazu \"krowa\"",
         "description": "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
-        "legend": [
+        "layers": [
             {
                 "value": "aaaaa",
                 "name": "krowa",

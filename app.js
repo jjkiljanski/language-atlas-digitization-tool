@@ -62,14 +62,16 @@ function updateLegend(legendList, mapName) {
     symbolDiv.innerHTML = svgCache[entry.symbol] || "";
     item.appendChild(symbolDiv);
 
-    const label = document.createTextNode(entry.name || entry.value);
-    item.appendChild(label);
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "legend-name";
+    labelSpan.textContent = entry.name || entry.value;
+    item.appendChild(labelSpan);
+
 
     container.appendChild(item);
   });
 }
 
-// Load map and draw points
 async function loadMap(mapId) {
   const rawText = await fetch("data/data.csv").then(res => res.text());
   const csv = d3.dsvFormat(";").parse(rawText);
@@ -77,16 +79,17 @@ async function loadMap(mapId) {
   const mapMeta = metadata.find(m => m.map_id === mapId);
   if (!mapMeta) return;
 
-  const legendList = mapMeta.legend || [];
+  const legendList = mapMeta.layers || [];
 
-  // Build value → legend info
-  currentLegendMap = {};
-  legendList.forEach(entry => {
-    currentLegendMap[entry.value] = {
-      name: entry.name || entry.value,
-      symbol: entry.symbol
+  // Build symbol info for each layer by its full key (e.g., XV.1/0)
+  const symbolMap = {};
+  for (const layer of legendList) {
+    const colKey = `${mapId}/${layer.layer_id}`;
+    symbolMap[colKey] = {
+      name: layer.name,
+      symbol: layer.symbol
     };
-  });
+  }
 
   if (geoLayer) map.removeLayer(geoLayer);
 
@@ -94,6 +97,17 @@ async function loadMap(mapId) {
     const [latStr, lonStr] = row.Coordinates.split(",");
     const lat = Number(latStr.trim());
     const lon = Number(lonStr.trim());
+
+    // Collect all symbols that are active at this point
+    const activeSymbols = [];
+
+    for (const layer of legendList) {
+      const colKey = `${mapId}/${layer.layer_id}`;
+      const cellValue = row[colKey];
+      if (cellValue && cellValue.trim() !== "") {
+        activeSymbols.push(symbolMap[colKey]);
+      }
+    }
 
     return {
       type: "Feature",
@@ -103,18 +117,16 @@ async function loadMap(mapId) {
         place_name: row["City Name Today"] && row["City Name Today"].trim() !== "" 
           ? row["City Name Today"] 
           : row["Original City Name"],
-        value: row[mapId]
+        activeSymbols
       }
     };
   });
 
   geoLayer = L.geoJSON({ type: "FeatureCollection", features }, {
     pointToLayer: (feature, latlng) => {
-      const val = feature.properties.value;
-      const symbolInfo = currentLegendMap[val];
-      const svg = symbolInfo ? svgCache[symbolInfo.symbol] : "";
+      const { id, activeSymbols } = feature.properties;
 
-      // Container div (vertical stack)
+      // Build marker container
       const container = document.createElement("div");
       container.style.display = "flex";
       container.style.flexDirection = "column";
@@ -123,9 +135,9 @@ async function loadMap(mapId) {
       container.style.width = "30px";
       container.style.userSelect = "none";
 
-      // Number box (invisible but same size)
+      // Number div
       const numberDiv = document.createElement("div");
-      numberDiv.textContent = feature.properties.id;
+      numberDiv.textContent = id;
       numberDiv.style.width = "30px";
       numberDiv.style.height = "15px";
       numberDiv.style.display = "flex";
@@ -133,23 +145,26 @@ async function loadMap(mapId) {
       numberDiv.style.justifyContent = "center";
       numberDiv.style.fontWeight = "bold";
       numberDiv.style.fontSize = "11px";
-
-      // Remove background and border (invisible box)
       numberDiv.style.backgroundColor = "transparent";
       numberDiv.style.border = "none";
 
-      // Symbol box (unchanged)
-      const symbolDiv = document.createElement("div");
-      symbolDiv.style.width = "30px";
-      symbolDiv.style.height = "15px";
-      symbolDiv.style.display = "flex";
-      symbolDiv.style.alignItems = "center";
-      symbolDiv.style.justifyContent = "center";
-      symbolDiv.innerHTML = svg;
+      // Symbol row (flex row)
+      const symbolRow = document.createElement("div");
+      symbolRow.style.display = "flex";
+      symbolRow.style.flexDirection = "row";
+      symbolRow.style.justifyContent = "center";
+      symbolRow.style.alignItems = "center";
 
-      // Append both boxes
+      for (const sym of activeSymbols) {
+        const symDiv = document.createElement("div");
+        symDiv.innerHTML = svgCache[sym.symbol] || "";
+        symDiv.style.width = "15px";
+        symDiv.style.height = "15px";
+        symbolRow.appendChild(symDiv);
+      }
+
       container.appendChild(numberDiv);
-      container.appendChild(symbolDiv);
+      container.appendChild(symbolRow);
 
       return L.marker(latlng, {
         icon: L.divIcon({
@@ -161,16 +176,15 @@ async function loadMap(mapId) {
       });
     },
     onEachFeature: (feature, layer) => {
-      const val = feature.properties.value;
-      const legendEntry = currentLegendMap[val];
-      const legendName = legendEntry ? legendEntry.name : val;
-      layer.bindTooltip(`Nr: ${feature.properties.id} (${feature.properties.place_name})<br>${legendName}`);
-
+      const { id, place_name, activeSymbols } = feature.properties;
+      const legendNames = activeSymbols.map(s => s.name).join("<br>");
+      layer.bindTooltip(`Nr: ${id} (${place_name})<br><span class="tooltip-legend-name">${legendNames}</span>`);
     }
   }).addTo(map);
 
   updateLegend(legendList, mapMeta.map_name);
 }
+
 
 // Initialize everything
 async function init() {
