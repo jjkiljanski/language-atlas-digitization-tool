@@ -100,6 +100,9 @@ async function loadMap(mapId) {
       geometry: { type: "Point", coordinates: [lon, lat] },
       properties: {
         id: row.Nr,
+        place_name: row["City Name Today"] && row["City Name Today"].trim() !== "" 
+          ? row["City Name Today"] 
+          : row["Original City Name"],
         value: row[mapId]
       }
     };
@@ -161,7 +164,7 @@ async function loadMap(mapId) {
       const val = feature.properties.value;
       const legendEntry = currentLegendMap[val];
       const legendName = legendEntry ? legendEntry.name : val;
-      layer.bindTooltip(`Nr: ${feature.properties.id}<br>${legendName}`);
+      layer.bindTooltip(`Nr: ${feature.properties.id} (${feature.properties.place_name})<br>${legendName}`);
 
     }
   }).addTo(map);
