@@ -86,12 +86,47 @@ async function loadMap(mapId) {
       const val = feature.properties.value;
       const symbolInfo = currentLegendMap[val];
       const svg = symbolInfo ? svgCache[symbolInfo.symbol] : "";
-      const div = document.createElement("div");
-      div.className = "map-symbol";
-      div.innerHTML = svg;
+
+      // Container div (vertical stack)
+      const container = document.createElement("div");
+      container.style.display = "flex";
+      container.style.flexDirection = "column";
+      container.style.alignItems = "center";
+      container.style.justifyContent = "center";
+      container.style.width = "30px";
+      container.style.userSelect = "none";
+
+      // Number box (invisible but same size)
+      const numberDiv = document.createElement("div");
+      numberDiv.textContent = feature.properties.id;
+      numberDiv.style.width = "30px";
+      numberDiv.style.height = "15px";
+      numberDiv.style.display = "flex";
+      numberDiv.style.alignItems = "center";
+      numberDiv.style.justifyContent = "center";
+      numberDiv.style.fontWeight = "bold";
+      numberDiv.style.fontSize = "11px";
+
+      // Remove background and border (invisible box)
+      numberDiv.style.backgroundColor = "transparent";
+      numberDiv.style.border = "none";
+
+      // Symbol box (unchanged)
+      const symbolDiv = document.createElement("div");
+      symbolDiv.style.width = "30px";
+      symbolDiv.style.height = "15px";
+      symbolDiv.style.display = "flex";
+      symbolDiv.style.alignItems = "center";
+      symbolDiv.style.justifyContent = "center";
+      symbolDiv.innerHTML = svg;
+
+      // Append both boxes
+      container.appendChild(numberDiv);
+      container.appendChild(symbolDiv);
+
       return L.marker(latlng, {
         icon: L.divIcon({
-          html: div.outerHTML,
+          html: container.outerHTML,
           className: "",
           iconSize: [30, 30],
           iconAnchor: [15, 15]
@@ -99,7 +134,11 @@ async function loadMap(mapId) {
       });
     },
     onEachFeature: (feature, layer) => {
-      layer.bindTooltip(`Nr: ${feature.properties.id}<br>Val: ${feature.properties.value}`);
+      const val = feature.properties.value;
+      const legendEntry = currentLegendMap[val];
+      const legendName = legendEntry ? legendEntry.name : val;
+      layer.bindTooltip(`Nr: ${feature.properties.id}<br>${legendName}`);
+
     }
   }).addTo(map);
 
