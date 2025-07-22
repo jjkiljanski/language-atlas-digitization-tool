@@ -25,9 +25,16 @@ async function preloadAllSymbols() {
 }
 
 // Draw legend
-function updateLegend(legendList) {
+function updateLegend(legendList, mapName) {
   const container = document.getElementById("legend");
-  container.innerHTML = "<h4>Legend</h4>";
+
+  // Add map name as a title
+  if (mapName) {
+    const title = document.createElement("h3");
+    title.textContent = mapName;
+    title.style.marginBottom = "8px";
+    container.appendChild(title);
+  }
 
   legendList.forEach(entry => {
     const item = document.createElement("div");
@@ -142,7 +149,7 @@ async function loadMap(mapId) {
     }
   }).addTo(map);
 
-  updateLegend(legendList);
+  updateLegend(legendList, mapMeta.map_name);
 }
 
 // Initialize everything
