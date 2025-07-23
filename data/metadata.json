@@ -33,6 +33,36 @@
                 "layer_id": "5",
                 "name": "krov'ińec",
                 "symbol": "triangle_diagonal"
+            },
+            {
+                "layer_id": "6",
+                "name": "podv́ečʹórk, podv́ečʹork",
+                "area_fill": "vertical_stripes"
+            },
+            {
+                "layer_id": "7",
+                "name": "podv́'ečórk, podv́'ečork",
+                "area_fill": "horizontal_stripes"
+            },
+            {
+                "layer_id": "8",
+                "name": "maksymalny zasięg akcentu oksytonicznego w formach z suf. -k, -c (na podstawie 13 przykładów)",
+                "border": "line"
+            },
+            {
+                "layer_id": "9",
+                "name": "maksymalny zasięg akcentu paraoksytonicznego w formach z suf. -ek, -ec (na podstawie 13 przykładów)",
+                "area_fill": "dots"
+            },
+            {
+                "layer_id": "10",
+                "name": "granica stabilizacji inicjalnej akcentu wg. T. Lehra",
+                "border": "dashed_line"
+            },
+            {
+                "layer_id": "11",
+                "name": "maksymalny zasięg form z suf. -k, -c (na podstawie AJK VIII, m.synt. 5)",
+                "border": "dots"
             }
         ]
     },

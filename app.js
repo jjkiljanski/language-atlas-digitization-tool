@@ -56,17 +56,44 @@ function updateLegend(legendList, mapName) {
   legendList.forEach(entry => {
     const item = document.createElement("div");
     item.className = "legend-item";
+    item.style.display = "flex";
+    item.style.alignItems = "center";
+    item.style.marginBottom = "6px";
+    item.style.gap = "6px";
 
     const symbolDiv = document.createElement("div");
     symbolDiv.className = "legend-symbol";
-    symbolDiv.innerHTML = svgCache[entry.symbol] || "";
+    symbolDiv.style.width = "20px";
+    symbolDiv.style.height = "12px";
+
+    if (entry.symbol) {
+      // Use SVG symbol
+      symbolDiv.innerHTML = svgCache[entry.symbol] || "";
+    } else if (entry.border) {
+      // Create line sample
+      const line = document.createElement("div");
+      line.style.width = "100%";
+      line.style.height = "2px";
+      line.style.backgroundColor = "black";
+
+      // Style for dashed or dotted lines
+      if (entry.border === "dashed_line") {
+        line.style.borderTop = "2px dashed black";
+        line.style.backgroundColor = "transparent";
+      } else if (entry.border === "dots") {
+        line.style.borderTop = "2px dotted black";
+        line.style.backgroundColor = "transparent";
+      }
+
+      symbolDiv.appendChild(line);
+    }
+
     item.appendChild(symbolDiv);
 
     const labelSpan = document.createElement("span");
     labelSpan.className = "legend-name";
     labelSpan.textContent = entry.name || entry.value;
     item.appendChild(labelSpan);
-
 
     container.appendChild(item);
   });
@@ -93,23 +120,33 @@ async function loadMap(mapId) {
 
   if (geoLayer) map.removeLayer(geoLayer);
 
-  const features = csv.map(row => {
+  const features = [];
+  const borderGroups = {};
+
+  for (const row of csv) {
     const [latStr, lonStr] = row.Coordinates.split(",");
     const lat = Number(latStr.trim());
     const lon = Number(lonStr.trim());
 
-    // Collect all symbols that are active at this point
     const activeSymbols = [];
 
     for (const layer of legendList) {
       const colKey = `${mapId}/${layer.layer_id}`;
       const cellValue = row[colKey];
-      if (cellValue && cellValue.trim() !== "") {
-        activeSymbols.push(symbolMap[colKey]);
+
+      if (!cellValue || cellValue.trim() === "") continue;
+
+      if (layer.symbol) {
+        activeSymbols.push({ name: layer.name, symbol: layer.symbol });
+      }
+
+      if (layer.border) {
+        if (!borderGroups[layer.layer_id]) borderGroups[layer.layer_id] = [];
+        borderGroups[layer.layer_id].push([lat, lon]);
       }
     }
 
-    return {
+    features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: [lon, lat] },
       properties: {
@@ -119,8 +156,8 @@ async function loadMap(mapId) {
           : row["Original City Name"],
         activeSymbols
       }
-    };
-  });
+    });
+  }
 
   geoLayer = L.geoJSON({ type: "FeatureCollection", features }, {
     pointToLayer: (feature, latlng) => {
@@ -181,6 +218,33 @@ async function loadMap(mapId) {
       layer.bindTooltip(`Nr: ${id} (${place_name})<br><span class="tooltip-legend-name">${legendNames}</span>`);
     }
   }).addTo(map);
+
+  // Draw border layers
+  for (const layer of legendList) {
+    if (!layer.border || !borderGroups[layer.layer_id]) continue;
+
+    const points = borderGroups[layer.layer_id].map(([lat, lon]) => [lat, lon]);
+
+    if (points.length >= 3) {
+      const hull = turf.convex(turf.featureCollection(
+        points.map(([lat, lon]) =>
+          turf.point([lon, lat])
+        )
+      ));
+
+      const borderStyle = {
+        color: "#000",
+        weight: 2,
+        fill: false,
+        dashArray: layer.border === "dashed_line" ? "5,5" :
+                   layer.border === "dots" ? "1, 6" : null
+      };
+
+      if (hull) {
+        L.geoJSON(hull, { style: borderStyle }).addTo(map);
+      }
+    }
+  }
 
   updateLegend(legendList, mapMeta.map_name);
 }
