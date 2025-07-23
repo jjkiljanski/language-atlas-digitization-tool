@@ -1,3 +1,5 @@
+// Define map layer
+
 const map = L.map("map").setView([54.0, 18.0], 8.2);
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   attribution:
@@ -6,21 +8,19 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 19
 }).addTo(map);
 
+// Define legend in the top-right corner of the map
+
 const legendControl = L.control({ position: 'topright' });
 
 legendControl.onAdd = function(map) {
   const div = L.DomUtil.create('div', 'legend-container');
   div.id = 'legend';
-  div.style.background = 'white';
-  div.style.padding = '10px';
-  div.style.borderRadius = '6px';
-  div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
-  div.style.maxWidth = '300px';
-  div.style.fontFamily = 'sans-serif';
   return div;
 };
 
 legendControl.addTo(map);
+
+/////////////////////// Load and add symbols as points on the map and to the legend //////////////////////
 
 let geoLayer;
 let currentLegendMap = {};  // value → { name, symbol }
@@ -219,31 +219,80 @@ async function loadMap(mapId) {
     }
   }).addTo(map);
 
-  // Draw border layers
+  // Draw Voronoi border between presence and absence
   for (const layer of legendList) {
-    if (!layer.border || !borderGroups[layer.layer_id]) continue;
+    if (!layer.border) continue;
 
-    const points = borderGroups[layer.layer_id].map(([lat, lon]) => [lat, lon]);
+    const layerId = layer.layer_id;
+    const colKey = `${mapId}/${layerId}`;
 
-    if (points.length >= 3) {
-      const hull = turf.convex(turf.featureCollection(
-        points.map(([lat, lon]) =>
-          turf.point([lon, lat])
-        )
-      ));
+    // Separate presence and absence groups
+    const presence = [];
+    const absence = [];
 
-      const borderStyle = {
-        color: "#000",
-        weight: 2,
-        fill: false,
-        dashArray: layer.border === "dashed_line" ? "5,5" :
-                   layer.border === "dots" ? "1, 6" : null
-      };
+    for (const row of csv) {
+      const [latStr, lonStr] = row.Coordinates.split(",");
+      const lat = Number(latStr.trim());
+      const lon = Number(lonStr.trim());
+      const val = row[colKey];
 
-      if (hull) {
-        L.geoJSON(hull, { style: borderStyle }).addTo(map);
+      if (val && val.trim() !== "") {
+        presence.push({ lat, lon });
+      } else {
+        absence.push({ lat, lon });
       }
     }
+
+    const allPoints = [...presence.map(p => ({ ...p, hasTrait: true })), ...absence.map(p => ({ ...p, hasTrait: false }))];
+    const coords = allPoints.map(p => [p.lon, p.lat]); // [x, y]
+
+    if (coords.length < 3) continue; // can't form Voronoi
+
+    const delaunay = d3.Delaunay.from(coords);
+    const voronoi = delaunay.voronoi([14, 52, 23, 56]); // bounding box: adjust to your region
+
+    const borderLines = [];
+
+    for (let e = 0; e < delaunay.halfedges.length; ++e) {
+      const j = delaunay.halfedges[e];
+      if (j < e) continue; // skip duplicate edges
+
+      const p = delaunay.triangles[e];
+      const q = delaunay.triangles[j];
+
+      const pt1 = allPoints[p];
+      const pt2 = allPoints[q];
+
+      if (!pt1 || !pt2) continue;
+      if (pt1.hasTrait === pt2.hasTrait) continue; // only draw between different groups
+
+      const v1 = voronoi.cellPolygon(p);
+      const v2 = voronoi.cellPolygon(q);
+      if (!v1 || !v2) continue;
+
+      // Find common edge
+      const edge = v1.find(pt => v2.some(pt2 => pt[0] === pt2[0] && pt[1] === pt2[1]));
+      if (!edge) continue;
+
+      const edgeIndex1 = v1.findIndex(pt => v2.some(pt2 => pt[0] === pt2[0] && pt[1] === pt2[1]));
+      const edgeIndex2 = (edgeIndex1 + 1) % v1.length;
+
+      const edgeStart = v1[edgeIndex1];
+      const edgeEnd = v1[edgeIndex2];
+
+      borderLines.push([[edgeStart[1], edgeStart[0]], [edgeEnd[1], edgeEnd[0]]]); // Leaflet expects [lat, lon]
+    }
+
+    const borderStyle = {
+      color: "#000",
+      weight: 2,
+      dashArray: layer.border === "dashed_line" ? "5,5" :
+                layer.border === "dots" ? "1, 6" : null
+    };
+
+    borderLines.forEach(line => {
+      L.polyline(line, borderStyle).addTo(map);
+    });
   }
 
   updateLegend(legendList, mapMeta.map_name);

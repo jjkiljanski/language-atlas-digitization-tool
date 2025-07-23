@@ -66,10 +66,10 @@
 70;Skorzewo;;;54.167222, 17.974167;https://pl.wikipedia.org/wiki/Skorzewo;;;1;;;1;;;;;;;1;bbbbb;bbbbb;bbbbb
 71;Smołdzino;;;54.356389, 18.300278;https://pl.wikipedia.org/wiki/Smo%C5%82dzino_(powiat_kartuski);;a;;;a;;;;;1;;1;1;bbbbb;bbbbb;bbbbb
 72;Mezowo;;;54.313056, 18.240833;https://pl.wikipedia.org/wiki/Mezowo;;;1;;;1;;;;1;;;1;bbbbb;bbbbb;bbbbb
-73;Dzierzążno;Dzierżążno;;54.316111, 18.266944;https://pl.wikipedia.org/wiki/Dzier%C5%BC%C4%85%C5%BCno_(powiat_kartuski);;;1;;;1;;;;;;;1;bbbbb;bbbbb;bbbbb
-74;Grabówko;;;54.146667, 18.169167;https://pl.wikipedia.org/wiki/Grab%C3%B3wko_(powiat_ko%C5%9Bcierski);;;;;;;;;;;;;;bbbbb;bbbbb;bbbbb
+72a;Dzierzążno;Dzierżążno;;54.316111, 18.266944;https://pl.wikipedia.org/wiki/Dzier%C5%BC%C4%85%C5%BCno_(powiat_kartuski);;;1;;;1;;;;1;;;1;bbbbb;bbbbb;bbbbb
+73;Grabówko;;;54.146667, 18.169167;https://pl.wikipedia.org/wiki/Grab%C3%B3wko_(powiat_ko%C5%9Bcierski);;;;;;;;;;;;;1;bbbbb;bbbbb;bbbbb
 75;Hopowo;;;54.255278, 18.235;https://pl.wikipedia.org/wiki/Hopowo;;;1;;;;;;;1;;;1;bbbbb;bbbbb;bbbbb
-76;Rębiechowo;;;54.379722, 18.429444;https://pl.wikipedia.org/wiki/R%C4%99biechowo_(powiat_kartuski);;a;;;a;;;;;;;;;bbbbb;bbbbb;bbbbb
+76;Rębiechowo;;;54.379722, 18.429444;https://pl.wikipedia.org/wiki/R%C4%99biechowo_(powiat_kartuski);;a;;;a;;;;;1;;1;1;bbbbb;bbbbb;bbbbb
 77;Leźno;;;54.345833, 18.434167;https://pl.wikipedia.org/wiki/Le%C5%BAno;;a;;;a;;;;;1;;1;1;bbbbb;bbbbb;bbbbb
 78;Skrzeszowo;;;54.285, 18.351111;https://pl.wikipedia.org/wiki/Skrzeszewo_(gmina_%C5%BBukowo);;;1;;;1;;;;1;;;1;ccccc;bbbbb;bbbbb
 85;Trąbki Wielkie;;;54.171111, 18.537778;https://pl.wikipedia.org/wiki/Tr%C4%85bki_Wielkie_(wie%C5%9B);;;;;;;;;;;;;;ccccc;bbbbb;bbbbb

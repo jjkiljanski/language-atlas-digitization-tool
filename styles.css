@@ -5,6 +5,15 @@
   font-family: sans-serif; /* default font for legend except names */
 }
 
+#legend.legend-container {
+  background: white;
+  padding: 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  max-width: 300px;
+  font-family: sans-serif;
+}
+
 /* ========== Legend Items ========== */
 .legend-item {
   display: flex;
