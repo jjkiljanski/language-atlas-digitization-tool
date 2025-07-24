@@ -1,5 +1,5 @@
 import { preloadAllSymbols, getSymbol } from './src/symbolLoader.js';
-import { addSymbolLayerToMap, drawVoronoiBorders } from './src/drawingUtils.js';
+import { addSymbolLayerToMap, drawVoronoiLayers } from './src/drawingUtils.js';
 
 // Define map layer
 
@@ -166,7 +166,7 @@ async function loadMap(mapId) {
     }).addTo(map);
 
     // Draw the borders and area fills using Voronoi diagram approach
-    drawVoronoiBorders(features, legendList, map, clippingGeometry);
+    drawVoronoiLayers(features, legendList, map, clippingGeometry);
   });
 
 
