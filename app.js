@@ -1,6 +1,6 @@
 import { preloadAllSymbols, getSymbol } from './src/symbolLoader.js';
 import { addSymbolLayerToMap, drawVoronoiLayers } from './src/drawingUtils.js';
-import { borderStyles } from './src/styleConfig.js';
+import { borderStyles, areaFillStyles } from './src/styleConfig.js';
 
 // Define map layer
 
@@ -32,7 +32,6 @@ const csv = d3.dsvFormat(";").parse(rawText);
 let geoLayer;
 let metadata = [];
 
-// Draw legend
 function updateLegend(legendList, mapName) {
   const container = document.querySelector('.legend-container');
   container.innerHTML = "";
@@ -75,7 +74,17 @@ function updateLegend(legendList, mapName) {
 
         symbolDiv.appendChild(line);
       }
+    } else if (entry.area_fill) {
+      const fillConfig = areaFillStyles[entry.area_fill];
+
+      if (fillConfig && fillConfig.legendStyle) {
+        const style = fillConfig.legendStyle;
+        for (const key in style) {
+          symbolDiv.style[key] = style[key];
+        }
+      }
     }
+
 
     item.appendChild(symbolDiv);
 
