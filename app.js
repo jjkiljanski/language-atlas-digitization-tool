@@ -151,7 +151,13 @@ async function loadMap(mapId) {
 
   geoLayer = addSymbolLayerToMap(features, map);
 
-  drawVoronoiBorders(features, legendList, map);
+  fetch('data/map_boundaries.geojson')
+  .then(res => res.json())
+  .then(geojson => {
+    const clippingGeometry = geojson.features[0]; // or combine if multiple
+    drawVoronoiBorders(features, legendList, map, clippingGeometry);
+  });
+
 
   updateLegend(legendList, mapMeta.map_name);
 }
