@@ -166,7 +166,7 @@ async function loadMap(mapId) {
     // Add the map boundaries to the map
     L.geoJSON(clippingGeometry, {
       style: {
-        color: "#000",       // black border
+        color: "green",       // black border
         weight: 2,           // line thickness
         fill: false          // don't fill the area
       }
@@ -183,18 +183,39 @@ async function loadMap(mapId) {
 //////////////////////////////////// Initialize Everything ///////////////////////////////////
 async function init() {
   await preloadAllSymbols(); // Load all symbols into svgCache
+
+  // Fetch metadata from JSON
   metadata = await fetch(`data/metadata.json?nocache=${Date.now()}`).then(res => res.json());
 
   const select = document.getElementById("map-select");
+  const authorBox = document.getElementById("map-author");
+
+  // Populate dropdown options from metadata
   metadata.forEach(entry => {
     const opt = document.createElement("option");
     opt.value = entry.map_id;
-    opt.textContent = entry.name;
+    opt.textContent = entry.map_id + " " + entry.map_name;
     select.appendChild(opt);
   });
 
-  select.addEventListener("change", () => loadMap(select.value));
-  loadMap(metadata[0].map_id);
+  // Add listener to update map and author on selection
+  select.addEventListener("change", () => {
+    const selectedId = select.value;
+    const selectedMeta = metadata.find(m => m.map_id === selectedId);
+
+    if (selectedMeta) {
+      authorBox.textContent = selectedMeta.author || "";
+    }
+
+    loadMap(selectedId);
+  });
+
+  // Load initial map and author
+  if (metadata.length > 0) {
+    select.value = metadata[0].map_id;
+    authorBox.textContent = metadata[0].author || "";
+    loadMap(metadata[0].map_id);
+  }
 }
 
 init();
