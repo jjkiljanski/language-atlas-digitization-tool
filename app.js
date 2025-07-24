@@ -151,10 +151,21 @@ async function loadMap(mapId) {
 
   geoLayer = addSymbolLayerToMap(features, map);
 
-  fetch('data/map_boundaries.geojson')
+  fetch('data/map_boundaries.geojson') // Load the map boundaries from geojson
   .then(res => res.json())
   .then(geojson => {
-    const clippingGeometry = geojson.features[0]; // or combine if multiple
+    const clippingGeometry = geojson.features[0];
+
+    // Add the map boundaries to the map
+    L.geoJSON(clippingGeometry, {
+      style: {
+        color: "#000",       // black border
+        weight: 2,           // line thickness
+        fill: false          // don't fill the area
+      }
+    }).addTo(map);
+
+    // Draw the borders and area fills using Voronoi diagram approach
     drawVoronoiBorders(features, legendList, map, clippingGeometry);
   });
 
