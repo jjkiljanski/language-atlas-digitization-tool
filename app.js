@@ -1,5 +1,6 @@
 import { preloadAllSymbols, getSymbol } from './src/symbolLoader.js';
 import { addSymbolLayerToMap, drawVoronoiLayers } from './src/drawingUtils.js';
+import { borderStyles } from './src/styleConfig.js';
 
 // Define map layer
 
@@ -61,22 +62,19 @@ function updateLegend(legendList, mapName) {
       // Use SVG symbol
       symbolDiv.innerHTML = getSymbol(entry.symbol) || "";
     } else if (entry.border) {
-      // Create line sample
-      const line = document.createElement("div");
-      line.style.width = "100%";
-      line.style.height = "2px";
-      line.style.backgroundColor = "black";
+      const borderConfig = borderStyles[entry.border];
 
-      // Style for dashed or dotted lines
-      if (entry.border === "dashed_line") {
-        line.style.borderTop = "2px dashed black";
-        line.style.backgroundColor = "transparent";
-      } else if (entry.border === "dots") {
-        line.style.borderTop = "2px dotted black";
-        line.style.backgroundColor = "transparent";
+      if (borderConfig) {
+        const legendStyle = borderConfig.legendStyle || {};
+        const line = document.createElement("div");
+        line.style.width = "100%";
+        line.style.height = "2px";
+
+        if (legendStyle.borderTop) line.style.borderTop = legendStyle.borderTop;
+        if (legendStyle.backgroundColor) line.style.backgroundColor = legendStyle.backgroundColor;
+
+        symbolDiv.appendChild(line);
       }
-
-      symbolDiv.appendChild(line);
     }
 
     item.appendChild(symbolDiv);
@@ -176,7 +174,7 @@ async function loadMap(mapId) {
 //////////////////////////////////// Initialize Everything ///////////////////////////////////
 async function init() {
   await preloadAllSymbols(); // Load all symbols into svgCache
-  metadata = await fetch("data/metadata.json").then(res => res.json());
+  metadata = await fetch(`data/metadata.json?nocache=${Date.now()}`).then(res => res.json());
 
   const select = document.getElementById("map-select");
   metadata.forEach(entry => {

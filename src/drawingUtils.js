@@ -1,4 +1,5 @@
 import { getSymbol } from './symbolLoader.js';
+import { areaFillStyles, borderStyles } from './styleConfig.js';
 
 export function addSymbolLayerToMap(features, map) {
   const geoLayer = L.geoJSON({ type: "FeatureCollection", features }, {
@@ -143,51 +144,56 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
     }
   }
 
-  const borderStyle = {
-    color: "#000",
-    weight: 2,
-    dashArray: layer.border === "dashed_line" ? "5,5" :
-               layer.border === "dots" ? "1, 6" : null
-  };
-
+  const borderStyle = borderStyles[layer.border] || borderStyles.solid_line;
   borderLines.forEach(line => {
     L.polyline(line, borderStyle).addTo(map);
   });
 }
 
-
-/**
- * Draws filled Voronoi cells (area fills) for a given layer on the Leaflet map.
- * Cells are clipped to the provided clippingGeometry polygon.
- * @param {Object} layer - Layer configuration object with layer_id and area_fill type.
- * @param {Array} features - Array of GeoJSON features.
- * @param {Object} voronoi - Voronoi diagram object from d3.Delaunay.voronoi().
- * @param {Object} clippingGeometry - Turf.js polygon or multipolygon for clipping.
- * @param {L.Map} map - Leaflet map instance.
- */
 function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
   const layerId = layer.layer_id;
+  const styleConfig = areaFillStyles[layer.area_fill];
+
+  if (!styleConfig) {
+    console.warn(`Unknown area fill style: ${layer.area_fill}`);
+    return;
+  }
+
+  if (!map._areaFillPatterns) map._areaFillPatterns = {};
+  let pattern = map._areaFillPatterns[layerId];
+
+  if (!pattern) {
+    pattern = new L.Pattern({
+      width: 10,
+      height: 10,
+      patternUnits: 'userSpaceOnUse'
+    });
+
+    // Create shapes according to styleConfig, which now should create Leaflet PatternShapes
+    // instead of manipulating raw SVG elements
+    if (styleConfig.createShape) {
+      styleConfig.createShape(pattern); // Pass pattern object for shape creation
+    }
+
+    pattern.addTo(map);
+    map._areaFillPatterns[layerId] = pattern;
+  }
 
   const groupA = features.filter(f => f.properties.activeAreaFillGroups?.includes(layerId));
   if (groupA.length === 0) return;
 
   const fillCellPolys = [];
-  let no_features_added = 0;
 
   for (let i = 0; i < features.length; i++) {
     const f = features[i];
-    const hasTrait = f.properties.activeAreaFillGroups?.includes(layerId);
-    if (!hasTrait) continue;
+    if (!f.properties.activeAreaFillGroups?.includes(layerId)) continue;
 
     const cell = voronoi.cellPolygon(i);
     if (!cell) continue;
 
-    const turfPoly = turf.polygon([[...cell, cell[0]]]); // Close the polygon loop
+    const turfPoly = turf.polygon([[...cell, cell[0]]]); // close polygon
     const clipped = turf.intersect(turfPoly, clippingGeometry);
-    if (clipped) {
-      fillCellPolys.push(clipped);
-      no_features_added++;
-    }
+    if (clipped) fillCellPolys.push(clipped);
   }
 
   if (fillCellPolys.length === 0) return;
@@ -202,17 +208,36 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
   }
 
   if (merged) {
-    const styleId = `fill-${layerId}-${layer.area_fill}`;
-    ensurePatternDefined(styleId, layer.area_fill);
-
     L.geoJSON(merged, {
       style: {
-        fillPattern: `url(#${styleId})`,
+        fillPattern: pattern, // pass pattern object, NOT 'url(#...)'
         weight: 0,
         fillOpacity: 1
       }
     }).addTo(map);
   }
+}
+
+/**
+ * Ensures that <defs> exists in the SVG. Creates a hidden SVG container if necessary.
+ * @returns {SVGDefsElement}
+ */
+function createDefs() {
+  let svg = document.querySelector("svg");
+  if (!svg) {
+    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.style.position = "absolute";
+    svg.style.width = 0;
+    svg.style.height = 0;
+    document.body.appendChild(svg);
+  }
+
+  let defs = svg.querySelector("defs");
+  if (!defs) {
+    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    svg.appendChild(defs);
+  }
+  return defs;
 }
 
 
@@ -239,55 +264,4 @@ export function drawVoronoiLayers(features, legendList, map, clippingGeometry, b
       drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map);
     }
   }
-}
-
-// Helper to inject SVG pattern into the DOM
-function ensurePatternDefined(id, type) {
-  if (document.getElementById(id)) return;
-
-  const svgDefs = document.querySelector("svg defs") || createDefs();
-
-  const pattern = document.createElementNS("http://www.w3.org/2000/svg", "pattern");
-  pattern.setAttribute("id", id);
-  pattern.setAttribute("patternUnits", "userSpaceOnUse");
-  pattern.setAttribute("width", "10");
-  pattern.setAttribute("height", "10");
-
-  const shape = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  shape.setAttribute("stroke", "#000");
-  shape.setAttribute("stroke-width", "1");
-
-  if (type === "vertical_stripes") {
-    shape.setAttribute("d", "M0,0 L0,10");
-  } else if (type === "horizontal_stripes") {
-    shape.setAttribute("d", "M0,0 L10,0");
-  } else if (type === "dots") {
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", "5");
-    circle.setAttribute("cy", "5");
-    circle.setAttribute("r", "1.5");
-    circle.setAttribute("fill", "#000");
-    pattern.appendChild(circle);
-  }
-
-  if (type !== "dots") {
-    pattern.appendChild(shape);
-  }
-
-  svgDefs.appendChild(pattern);
-}
-
-function createDefs() {
-  let svg = document.querySelector("svg");
-  if (!svg) {
-    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.style.position = "absolute";
-    svg.style.width = 0;
-    svg.style.height = 0;
-    document.body.appendChild(svg);
-  }
-
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  svg.appendChild(defs);
-  return defs;
 }

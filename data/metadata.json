@@ -47,7 +47,7 @@
             {
                 "layer_id": "8",
                 "name": "maksymalny zasięg akcentu oksytonicznego w formach z suf. -k, -c (na podstawie 13 przykładów)",
-                "border": "line"
+                "border": "solid_line"
             },
             {
                 "layer_id": "9",
@@ -62,7 +62,7 @@
             {
                 "layer_id": "11",
                 "name": "maksymalny zasięg form z suf. -k, -c (na podstawie AJK VIII, m.synt. 5)",
-                "border": "dots"
+                "border": "dots_line"
             }
         ]
     },
