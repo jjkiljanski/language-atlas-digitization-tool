@@ -1,3 +1,97 @@
+/* ========== General Layout Styles ========== */
+
+/* Use Inter font throughout */
+body, select, label, h1, h2, h3, div {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Top bar fixed height */
+#top-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 60px;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  z-index: 999;
+}
+
+/* Title styles */
+#top-bar h1 {
+  font-weight: 600;
+  font-size: 24px;
+  padding: 15px 30px;
+  text-align: center;
+  margin: 0;
+}
+
+/* Content wrapper: sidebar + main map area */
+#content-wrapper {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  margin-top: 60px; /* below fixed top bar */
+}
+
+/* Sidebar styling */
+#sidebar {
+  width: 300px;
+  padding: 20px 15px;
+  background-color: #f4f4f4;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+  overflow-y: auto;
+  height: calc(100vh - 60px);
+}
+
+/* Sidebar labels */
+#sidebar label {
+  font-weight: 500;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  display: block;
+}
+
+/* Dropdown style */
+#map-select {
+  width: 100%;
+  padding: 6px;
+  font-size: 14px;
+}
+
+/* Description box */
+#map-description {
+  height: calc(100vh - 150px); /* full height minus top bar and other paddings */
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  white-space: pre-wrap;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+/* Main map container */
+#map-container {
+  flex-grow: 1;
+  position: relative;
+  height: calc(100vh - 60px);
+  margin-left: 0; /* no margin, sidebar already there */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Leaflet map fills available space */
+#map {
+  flex-grow: 1;
+}
+
 /* ========== Legend Container Styles ========== */
 #legend {
   padding: 10px;

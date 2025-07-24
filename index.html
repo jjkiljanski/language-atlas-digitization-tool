@@ -2,22 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Language Atlas</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Atlas Językowy Kaszubszczyzny</title>
+
+  <!-- Google font 'Inter' -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>#map { height: 90vh; }</style>
+
+  <!-- Your styles -->
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <h2>Language Atlas</h2>
-  <label for="map-select">Choose a map:</label>
-  <select id="map-select"></select>
-  <div id="legend"></div>
-  <div id="map"></div>
 
+  <!-- Top bar with title -->
+  <header id="top-bar">
+    <h1>Atlas Językowy Kaszubszczyzny (Wybrane Mapy)</h1>
+  </header>
+
+  <!-- Main content wrapper -->
+  <div id="content-wrapper">
+    <!-- Sidebar with dropdown and description -->
+    <aside id="sidebar">
+      <label for="map-select" id="map-label">Wybierz mapę:</label>
+      <select id="map-select"></select>
+
+      <label for="map-description" id="description-label">Opis Mapy:</label>
+      <div id="map-description"></div>
+    </aside>
+
+    <!-- Map container -->
+    <main id="map-container">
+      <div id="map"></div>
+      <div id="legend"></div>
+    </main>
+  </div>
+
+  <!-- Leaflet and other scripts -->
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-curve@1.0.0/leaflet.curve.js"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script> <!-- ✅ Turf.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
