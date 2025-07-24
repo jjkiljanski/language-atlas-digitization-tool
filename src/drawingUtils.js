@@ -68,17 +68,30 @@ export function addSymbolLayerToMap(features, map) {
 
 
 export function drawVoronoiBorders(features, legendList, map, boundingBox = [14, 52, 23, 56]) {
+
+  const coords = features.map(feature => [
+    feature.geometry.coordinates[0],
+    feature.geometry.coordinates[1]
+  ]);
+
+  if (coords.length < 3) return;
+
+  // Compute convex hull (as a GeoJSON polygon)
+  const hullCoords = d3.polygonHull(coords);
+  if (!hullCoords) return;
+
+  // Close the polygon
+  if (hullCoords[0][0] !== hullCoords[hullCoords.length - 1][0] ||
+      hullCoords[0][1] !== hullCoords[hullCoords.length - 1][1]) {
+    hullCoords.push(hullCoords[0]);
+  }
+
+  const convexHull = turf.polygon([[...hullCoords]]); // GeoJSON format
+
   for (const layer of legendList) {
     if (!layer.border) continue;
 
     const layerId = layer.layer_id;
-
-    const coords = features.map(feature => [
-      feature.geometry.coordinates[0],
-      feature.geometry.coordinates[1]
-    ]);
-
-    if (coords.length < 3) continue;
 
     const delaunay = d3.Delaunay.from(coords);
     const voronoi = delaunay.voronoi(boundingBox);
@@ -118,10 +131,32 @@ export function drawVoronoiBorders(features, legendList, map, boundingBox = [14,
       const edgeStart = v1[edgeIndex1];
       const edgeEnd = v1[edgeIndex2];
 
-      borderLines.push([
-        [edgeStart[1], edgeStart[0]],
-        [edgeEnd[1], edgeEnd[0]]
+      const line = turf.lineString([
+        [edgeStart[0], edgeStart[1]],
+        [edgeEnd[0], edgeEnd[1]]
       ]);
+
+      // Delete the line's part that is outside of the convex hull
+      const clipped = turf.lineIntersect(line, convexHull);
+      const startInside = turf.booleanPointInPolygon(turf.point([edgeStart[0], edgeStart[1]]), convexHull);
+      const endInside = turf.booleanPointInPolygon(turf.point([edgeEnd[0], edgeEnd[1]]), convexHull);
+
+      if (startInside && endInside) {
+        borderLines.push([
+          [edgeStart[1], edgeStart[0]],
+          [edgeEnd[1], edgeEnd[0]]
+        ]);
+      } else if (startInside || endInside) {
+        if (clipped.features.length > 0) {
+          const intersection = clipped.features[0].geometry.coordinates;
+          const inside = startInside ? edgeStart : edgeEnd;
+
+          borderLines.push([
+            [inside[1], inside[0]],
+            [intersection[1], intersection[0]]
+          ]);
+        }
+      }
     }
 
     const borderStyle = {
