@@ -82,5 +82,12 @@ export const areaFillStyles = {
       backgroundRepeat: 'repeat',
       backgroundSize: '6px 3px'
     }
+  },
+  yellow: {
+    isSolidFill: true,
+    fillColor: "#ffff00", // bright yellow
+    legendStyle: {
+      backgroundColor: "#ffff00"
+    }
   }
 };

@@ -164,7 +164,7 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
 /**
  * Draws filled Voronoi cell areas for a given layer on the Leaflet map.
  * Areas are clipped to the provided clippingGeometry polygon.
- * Patterns for area fills are created and reused on the map.
+ * Supports both pattern fills and solid color fills.
  * Each filled area is added as a Leaflet GeoJSON layer.
  * 
  * @param {Object} layer - Layer configuration object with layer_id and area_fill type.
@@ -178,33 +178,37 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
 function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
   const layerId = layer.layer_id;
   const styleConfig = areaFillStyles[layer.area_fill];
-  const areaFillLayers = []; // To store added layers
+  const areaFillLayers = [];
 
   if (!styleConfig) {
     console.warn(`Unknown area fill style: ${layer.area_fill}`);
-    return areaFillLayers; // Return empty array if style unknown
+    return areaFillLayers;
   }
 
-  if (!map._areaFillPatterns) map._areaFillPatterns = {};
-  let pattern = map._areaFillPatterns[layerId];
+  let pattern = null;
 
-  if (!pattern) {
-    pattern = new L.Pattern({
-      width: 10,
-      height: 10,
-      patternUnits: 'userSpaceOnUse'
-    });
+  if (!styleConfig.isSolidFill) {
+    if (!map._areaFillPatterns) map._areaFillPatterns = {};
+    pattern = map._areaFillPatterns[layerId];
 
-    if (styleConfig.createShape) {
-      styleConfig.createShape(pattern); // Create pattern shapes
+    if (!pattern) {
+      pattern = new L.Pattern({
+        width: 10,
+        height: 10,
+        patternUnits: 'userSpaceOnUse'
+      });
+
+      if (styleConfig.createShape) {
+        styleConfig.createShape(pattern);
+      }
+
+      pattern.addTo(map);
+      map._areaFillPatterns[layerId] = pattern;
     }
-
-    pattern.addTo(map);
-    map._areaFillPatterns[layerId] = pattern;
   }
 
   const groupA = features.filter(f => f.properties.activeAreaFillGroups?.includes(layerId));
-  if (groupA.length === 0) return areaFillLayers; // Return empty if nothing to fill
+  if (groupA.length === 0) return areaFillLayers;
 
   const fillCellPolys = [];
 
@@ -215,7 +219,7 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
     const cell = voronoi.cellPolygon(i);
     if (!cell) continue;
 
-    const turfPoly = turf.polygon([[...cell, cell[0]]]); // close polygon
+    const turfPoly = turf.polygon([[...cell, cell[0]]]);
     const clipped = turf.intersect(turfPoly, clippingGeometry);
     if (clipped) fillCellPolys.push(clipped);
   }
@@ -233,11 +237,17 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
 
   if (merged) {
     const geoJsonLayer = L.geoJSON(merged, {
-      style: {
-        fillPattern: pattern, // pass pattern object, NOT 'url(#...)'
-        weight: 0,
-        fillOpacity: 1
-      }
+      style: styleConfig.isSolidFill
+        ? {
+            fillColor: styleConfig.fillColor,
+            fillOpacity: 0.2,
+            weight: 0
+          }
+        : {
+            fillPattern: pattern,
+            fillOpacity: 1,
+            weight: 0
+          }
     }).addTo(map);
 
     areaFillLayers.push(geoJsonLayer);
