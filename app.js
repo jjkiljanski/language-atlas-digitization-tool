@@ -33,7 +33,7 @@ let symbolLayer;
 let voronoiLayers;
 let metadata = [];
 
-function updateLegend(legendList, mapName) {
+function updateLegend(legendList, mapName, voronoiLayers, map) {
   const container = document.querySelector('.legend-container');
   container.innerHTML = "";
 
@@ -52,6 +52,7 @@ function updateLegend(legendList, mapName) {
     item.style.alignItems = "center";
     item.style.marginBottom = "6px";
     item.style.gap = "6px";
+    item.style.cursor = "pointer"; // indicate it's clickable
 
     const symbolDiv = document.createElement("div");
     symbolDiv.className = "legend-symbol";
@@ -59,26 +60,21 @@ function updateLegend(legendList, mapName) {
     symbolDiv.style.height = "12px";
 
     if (entry.symbol) {
-      // Use SVG symbol
       symbolDiv.innerHTML = getSymbol(entry.symbol) || "";
     } else if (entry.border) {
       const borderConfig = borderStyles[entry.border];
-
       if (borderConfig) {
         const legendStyle = borderConfig.legendStyle || {};
         const line = document.createElement("div");
         line.style.width = "100%";
         line.style.height = "2px";
-
         if (legendStyle.borderTop) line.style.borderTop = legendStyle.borderTop;
         if (legendStyle.backgroundColor) line.style.backgroundColor = legendStyle.backgroundColor;
-
         symbolDiv.appendChild(line);
       }
     } else if (entry.area_fill) {
       const fillConfig = areaFillStyles[entry.area_fill];
-
-      if (fillConfig && fillConfig.legendStyle) {
+      if (fillConfig?.legendStyle) {
         const style = fillConfig.legendStyle;
         for (const key in style) {
           symbolDiv.style[key] = style[key];
@@ -86,13 +82,35 @@ function updateLegend(legendList, mapName) {
       }
     }
 
-
     item.appendChild(symbolDiv);
 
     const labelSpan = document.createElement("span");
     labelSpan.className = "legend-name";
     labelSpan.textContent = entry.name || entry.value;
     item.appendChild(labelSpan);
+
+    // 🔁 Track visibility state
+    let visible = true;
+
+    // 🔁 Add click handler to toggle layer visibility
+    item.addEventListener("click", () => {
+      const layers = voronoiLayers[entry.layer_id];
+      if (!layers) return;
+
+      const { borders = [], areaFills = [] } = layers;
+      const allLayers = [...borders, ...areaFills];
+
+      allLayers.forEach(layer => {
+        if (visible) {
+          map.removeLayer(layer);
+        } else {
+          map.addLayer(layer);
+        }
+      });
+
+      visible = !visible;
+      item.style.opacity = visible ? "1" : "0.4"; // Optional visual feedback
+    });
 
     container.appendChild(item);
   });
@@ -107,7 +125,6 @@ async function loadMap(mapId) {
   const legendList = mapMeta.layers || [];
 
   if (symbolLayer) map.removeLayer(symbolLayer);
-  console.log(voronoiLayers)
   if (voronoiLayers) {
     for (const layerId in voronoiLayers) {
       const layerGroup = voronoiLayers[layerId];
@@ -192,10 +209,9 @@ async function loadMap(mapId) {
 
     // Draw the borders and area fills using Voronoi diagram approach
     voronoiLayers = drawVoronoiLayers(features, legendList, map, clippingGeometry);
+
+    updateLegend(legendList, mapMeta.map_name, voronoiLayers, map);
   });
-
-
-  updateLegend(legendList, mapMeta.map_name);
 }
 
 //////////////////////////////////// Initialize Everything ///////////////////////////////////
