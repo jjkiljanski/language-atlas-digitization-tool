@@ -68,24 +68,85 @@
         ]
     },
     {
-        "map_id": "Map_1",
-        "map_name": "Mapa odmian wyrazu \"koń\"",
-        "description": "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
+        "map_id": "XV.38",
+        "map_name": "Podział gwar na obszarze AJK i maksymalne zasięgi zjawisk językowych",
+        "author": "K. Handke",
+        "description": "",
         "layers": [
             {
-                "value": "aaaaa",
-                "name": "koń",
+                "layer_id": "0",
+                "name": "p. kaszubskie",
                 "symbol": "circle_filled"
             },
             {
-                "value": "bbbbb",
-                "name": "kóń",
+                "layer_id": "1",
+                "name": "p. krajniackie",
+                "symbol": "ring_bold"
+            },
+            {
+                "layer_id": "2",
+                "name": "p. tucholskie (borowiackie)",
                 "symbol": "circle_empty"
             },
             {
-                "value": "ccccc",
-                "name": "koeń",
-                "symbol": "circle_50p_filled_l"
+                "layer_id": "3",
+                "name": "p. kociewskie (oraz malborskie i grudziądzkie)",
+                "symbol": "circle_with_cross"
+            },
+            {
+                "layer_id": "4",
+                "name": "p. chełmińskie",
+                "symbol": "circle_vertical_stripes"
+            },
+            {
+                "layer_id": "5",
+                "name": "p. kujawskie",
+                "symbol": "circle_horizontal_stripes"
+            },
+            {
+                "layer_id": "6",
+                "name": "p. północno-wielkopolskie",
+                "symbol": "circle_diagonal_stripes"
+            },
+            {
+                "layer_id": "7",
+                "name": "stwardnienie *s', *z', *z', *ʐ'",
+                "border": "solid_line"
+            },
+            {
+                "layer_id": "8",
+                "name": "kontynuanty *ā w pozycji niezależnej",
+                "border": "dashed_line"
+            },
+            {
+                "layer_id": "9",
+                "name": "kontynuanty *ā w kategoriach morfologicznych",
+                "border": "dots_line"
+            },
+            {
+                "layer_id": "10",
+                "name": "å (też w dyftongu åu̯) ≤ ā",
+                "border": ""
+            },
+            {
+                "layer_id": "11",
+                "name": "o̊, o (też w dyfton. o̊u̯, ou̯) ≤ *ā",
+                "border": ""
+            },
+            {
+                "layer_id": "12",
+                "name": "pozakasz. przebieg granicy dyftongicznej wymowy kontynuantów *ŏ w pozycjach *Kŏ, *Pŏ, *Tŏ",
+                "border": ""
+            },
+            {
+                "layer_id": "13",
+                "name": "pozakasz. przebieg granicy wymowy ą ≤ *ę oraz aN ≤ *ē̆N",
+                "border": ""
+            },
+            {
+                "layer_id": "14",
+                "name": "obszar dialektów kaszubskich",
+                "area_fill": "yellow"
             }
         ]
     },

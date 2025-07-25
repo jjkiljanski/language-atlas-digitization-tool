@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <ellipse style="stroke: rgb(0, 0, 0); fill: none; stroke-width: 20px;" cx="250" cy="250" rx="141.518" ry="141.518"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 10px;" x1="248.919" y1="107.641" x2="248.919" y2="392.6"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 10px;" x1="288.804" y1="112.927" x2="289.284" y2="386.835"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 10px;" x1="327.727" y1="131.186" x2="330.61" y2="367.613"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 10px;" x1="365.209" y1="160.98" x2="365.209" y2="329.705"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 10; transform-box: fill-box; transform-origin: 48202.8% -2.63134%;" x1="-253" y1="678.521" x2="-252.52" y2="404.613" transform="matrix(-1, 0, 0, -1, 0, 0.000059)"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 10; transform-box: fill-box; transform-origin: 6675.55% -11.1787%;" x1="-214.08" y1="660.261" x2="-211.2" y2="423.834" transform="matrix(-1, 0, 0, -1, 0, 0.00005)"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 10; transform-box: fill-box; transform-origin: 0% 138.132%;" x1="133.35" y1="164.343" x2="133.35" y2="333.068" transform="matrix(1, 0, 0, 1, 0, -0.000028)"/>
+</svg>

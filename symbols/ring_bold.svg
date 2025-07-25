@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" xmlns:bx="https://boxy-svg.com">
+  <path d="M 250 249.963 m -152.08 0 a 152.08 152.08 0 1 0 304.16 0 a 152.08 152.08 0 1 0 -304.16 0 Z M 250 249.963 m -58.572 0 a 58.572 58.572 0 0 1 117.144 0 a 58.572 58.572 0 0 1 -117.144 0 Z" bx:shape="ring 250 249.963 58.572 58.572 152.08 152.08 1@519adf24" style="stroke: rgb(0, 0, 0);"/>
+</svg>

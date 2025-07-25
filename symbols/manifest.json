@@ -18,5 +18,10 @@
     "triangle_filled",
     "vertical_rectangle_diagonal",
     "vertical_rectangle_empty",
-    "vertical_rectangle_filled"
+    "vertical_rectangle_filled",
+    "ring_bold",
+    "circle_with_cross",
+    "circle_vertical_stripes",
+    "circle_horizontal_stripes",
+    "circle_diagonal_stripes"
 ]

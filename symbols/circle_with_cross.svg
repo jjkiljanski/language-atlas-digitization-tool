@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <ellipse style="stroke: rgb(0, 0, 0); fill: none; stroke-width: 20px;" cx="250" cy="250" rx="141.518" ry="141.518"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 25px;" x1="250.215" y1="108.844" x2="249.785" y2="391.156"/>
+  <line style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 25; transform-box: fill-box; transform-origin: 50% 50%;" x1="250.215" y1="108.844" x2="249.785" y2="391.156" transform="matrix(0, 1, -1, 0, 0.000007, -0.000011)"/>
+</svg>
