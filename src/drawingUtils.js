@@ -166,13 +166,14 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
         patterns: [
           {
             offset: 0,
-            repeat: "8px",
+            repeat: "25px",
             symbol: L.Symbol.marker({
+              rotate: true,
               markerOptions: {
                 icon: L.divIcon({
                   className: "dot-marker-icon",
                   iconSize: [6, 6],
-                  iconAnchor: [9, 3] // 6px radius + 3px left offset
+                  iconAnchor: [6.5, 3] // 6px radius + 3px left offset
                 })
               }
             })
