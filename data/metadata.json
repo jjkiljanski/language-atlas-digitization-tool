@@ -121,7 +121,7 @@
             {
                 "layer_id": "9",
                 "name": "kontynuanty *ā w kategoriach morfologicznych",
-                "border": "dots_line"
+                "border": "solid_with_empty_triangles_on_side"
             },
             {
                 "layer_id": "10",

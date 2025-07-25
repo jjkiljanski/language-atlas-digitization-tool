@@ -35,6 +35,10 @@ export const borderStyles = {
       backgroundColor: "#000"
     },
     decorator: {
+      legendStyle: {
+        upwardShift: "50%",
+        rotation: "0",
+      },
       type: "marker",
       offset: "0%",
       repeat: "25px",
@@ -60,6 +64,10 @@ export const borderStyles = {
       backgroundColor: "#000"
     },
     decorator: {
+      legendStyle: {
+        upwardShift: "20%",
+        rotation: "0",
+      },
       type: "marker",
       offset: "0%",
       repeat: "25px",
@@ -85,6 +93,10 @@ export const borderStyles = {
       backgroundColor: "#000"
     },
     decorator: {
+      legendStyle: {
+        upwardShift: "140%",
+        rotation: "90",
+      },
       type: "marker",
       offset: "0%",
       repeat: "25px",
@@ -117,6 +129,10 @@ export const borderStyles = {
       backgroundColor: "#000"
     },
     decorator: {
+      legendStyle: {
+        upwardShift: "40%",
+        rotation: "90",
+      },
       type: "marker",
       offset: "0%",
       repeat: "25px",
@@ -147,6 +163,10 @@ export const borderStyles = {
       backgroundColor: "#000"
     },
     decorator: {
+      legendStyle: {
+        upwardShift: "50%",
+        rotation: "0",
+      },
       type: "marker",
       offset: "0%",
       repeat: "25px",
@@ -172,6 +192,10 @@ export const borderStyles = {
       backgroundColor: "#000"
     },
     decorator: {
+      legendStyle: {
+        upwardShift: "20%",
+        rotation: "30",
+      },
       type: "marker",
       offset: "0%",
       repeat: "25px",
@@ -186,6 +210,40 @@ export const borderStyles = {
               </svg>
             `,
             className: "", // <-- no default Leaflet class
+            iconSize: [10, 10],
+            iconAnchor: [0, 8.66]
+          })
+        }
+      }
+    }
+  },
+  solid_with_empty_triangles_on_side: {
+    color: "#000",
+    weight: 2,
+    dashArray: null,
+    legendStyle: {
+      borderTop: null,
+      backgroundColor: "#000"
+    },
+    decorator: {
+      legendStyle: {
+        upwardShift: "20%",
+        rotation: "30",
+      },
+      type: "marker",
+      offset: "0%",
+      repeat: "25px",
+      symbolOptions: {
+        rotate: true,
+        angleCorrection: 0,
+        markerOptions: {
+          icon: L.divIcon({
+            html: `
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10" style="display:block">
+                <polygon points="0,0 0,10 8.66,5" fill="none" stroke="#000" stroke-width="1" />
+              </svg>
+            `,
+            className: "", // no default Leaflet class
             iconSize: [10, 10],
             iconAnchor: [0, 8.66]
           })

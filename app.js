@@ -56,8 +56,9 @@ function updateLegend(legendList, mapName, voronoiLayers, map) {
 
     const symbolDiv = document.createElement("div");
     symbolDiv.className = "legend-symbol";
-    symbolDiv.style.width = "20px";
-    symbolDiv.style.height = "12px";
+    symbolDiv.style.width = "24px";
+    symbolDiv.style.height = "24px";
+    symbolDiv.style.position = "relative";
 
     if (entry.symbol) {
       symbolDiv.innerHTML = getSymbol(entry.symbol) || "";
@@ -68,9 +69,49 @@ function updateLegend(legendList, mapName, voronoiLayers, map) {
         const line = document.createElement("div");
         line.style.width = "100%";
         line.style.height = "2px";
+        line.style.position = "absolute";
+        line.style.top = "50%";
+        line.style.left = "0";
+        line.style.transform = "translateY(-50%)";
+
         if (legendStyle.borderTop) line.style.borderTop = legendStyle.borderTop;
         if (legendStyle.backgroundColor) line.style.backgroundColor = legendStyle.backgroundColor;
+
         symbolDiv.appendChild(line);
+
+        // ➕ Add decorator marker if defined
+        if (borderConfig.decorator?.type === "marker") {
+          const html = borderConfig.decorator.symbolOptions?.markerOptions?.icon?.options?.html;
+          if (html) {
+            const markerEl = document.createElement("div");
+            markerEl.innerHTML = html;
+            markerEl.style.position = "absolute";
+            markerEl.style.left = "50%";
+            markerEl.style.top = "50%";
+
+            // Default transform values
+            let shiftY = "-50%";
+            let shiftX = "-50%";
+            let rotation = "0deg";
+
+            // Apply decorator legendStyle if defined
+            if (entry.border) {
+              const borderConfig = borderStyles[entry.border];
+              const decoratorLegendStyle = borderConfig?.decorator?.legendStyle || {};
+
+              if (decoratorLegendStyle.upwardShift) {
+                shiftY = `calc(-50% - ${decoratorLegendStyle.upwardShift})`;
+              }
+
+              if (decoratorLegendStyle.rotation) {
+                rotation = `${decoratorLegendStyle.rotation}deg`;
+              }
+            }
+
+            markerEl.style.transform = `translate(${shiftX}, ${shiftY}) rotate(${rotation})`;
+            symbolDiv.appendChild(markerEl);
+          }
+        }
       }
     } else if (entry.area_fill) {
       const fillConfig = areaFillStyles[entry.area_fill];
