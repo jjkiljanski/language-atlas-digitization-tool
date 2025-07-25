@@ -29,7 +29,8 @@ const csv = d3.dsvFormat(";").parse(rawText);
 
 //////////////////////////////////// Define Legend ////////////////////////////////////
 
-let geoLayer;
+let symbolLayer;
+let voronoiLayers;
 let metadata = [];
 
 function updateLegend(legendList, mapName) {
@@ -105,7 +106,24 @@ async function loadMap(mapId) {
 
   const legendList = mapMeta.layers || [];
 
-  if (geoLayer) map.removeLayer(geoLayer);
+  if (symbolLayer) map.removeLayer(symbolLayer);
+  console.log(voronoiLayers)
+  if (voronoiLayers) {
+    for (const layerId in voronoiLayers) {
+      const layerGroup = voronoiLayers[layerId];
+
+      // Remove border layers if present
+      if (layerGroup.borders) {
+        layerGroup.borders.forEach(layer => map.removeLayer(layer));
+      }
+
+      // Remove area fill layers if present
+      if (layerGroup.areaFills) {
+        layerGroup.areaFills.forEach(layer => map.removeLayer(layer));
+      }
+    }
+  }
+
 
   ////////////// Define features list with map data ///////////////
 
@@ -156,7 +174,7 @@ async function loadMap(mapId) {
 
   ////////////// Draw data on the map /////////////
 
-  geoLayer = addSymbolLayerToMap(features, map);
+  symbolLayer = addSymbolLayerToMap(features, map);
 
   fetch('data/map_boundaries.geojson') // Load the map boundaries from geojson
   .then(res => res.json())
@@ -173,7 +191,7 @@ async function loadMap(mapId) {
     }).addTo(map);
 
     // Draw the borders and area fills using Voronoi diagram approach
-    drawVoronoiLayers(features, legendList, map, clippingGeometry);
+    voronoiLayers = drawVoronoiLayers(features, legendList, map, clippingGeometry);
   });
 
 

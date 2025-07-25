@@ -87,16 +87,21 @@ function computeVoronoiDiagram(features, boundingBox) {
 /**
  * Draws the Voronoi cell borders for a given layer on the Leaflet map.
  * Borders are clipped to the provided clippingGeometry polygon.
+ * Each border is added as an individual Leaflet polyline layer.
+ * 
  * @param {Object} layer - Layer configuration object with layer_id and border type.
  * @param {Array} features - Array of GeoJSON features.
  * @param {Object} voronoi - Voronoi diagram object from d3.Delaunay.voronoi().
  * @param {Object} delaunay - Delaunay triangulation object from d3.Delaunay.
  * @param {Object} clippingGeometry - Turf.js polygon or multipolygon for clipping.
  * @param {L.Map} map - Leaflet map instance.
+ * @returns {L.Polyline[]} Array of Leaflet polyline layers added to the map,
+ *                        useful for later removal.
  */
 function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry, map) {
   const layerId = layer.layer_id;
   const borderLines = [];
+  const borderLayers = []; // Track added Leaflet layers
 
   for (let e = 0; e < delaunay.halfedges.length; ++e) {
     const j = delaunay.halfedges[e];
@@ -145,18 +150,39 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
   }
 
   const borderStyle = borderStyles[layer.border] || borderStyles.solid_line;
+
   borderLines.forEach(line => {
-    L.polyline(line, borderStyle).addTo(map);
+    const polyline = L.polyline(line, borderStyle).addTo(map);
+    borderLayers.push(polyline); // Save reference
   });
+
+  return borderLayers; // Return all added layers
 }
 
+
+
+/**
+ * Draws filled Voronoi cell areas for a given layer on the Leaflet map.
+ * Areas are clipped to the provided clippingGeometry polygon.
+ * Patterns for area fills are created and reused on the map.
+ * Each filled area is added as a Leaflet GeoJSON layer.
+ * 
+ * @param {Object} layer - Layer configuration object with layer_id and area_fill type.
+ * @param {Array} features - Array of GeoJSON features.
+ * @param {Object} voronoi - Voronoi diagram object from d3.Delaunay.voronoi().
+ * @param {Object} clippingGeometry - Turf.js polygon or multipolygon for clipping.
+ * @param {L.Map} map - Leaflet map instance.
+ * @returns {L.Layer[]} Array of Leaflet layers added to the map,
+ *                      useful for later removal.
+ */
 function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
   const layerId = layer.layer_id;
   const styleConfig = areaFillStyles[layer.area_fill];
+  const areaFillLayers = []; // To store added layers
 
   if (!styleConfig) {
     console.warn(`Unknown area fill style: ${layer.area_fill}`);
-    return;
+    return areaFillLayers; // Return empty array if style unknown
   }
 
   if (!map._areaFillPatterns) map._areaFillPatterns = {};
@@ -169,10 +195,8 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
       patternUnits: 'userSpaceOnUse'
     });
 
-    // Create shapes according to styleConfig, which now should create Leaflet PatternShapes
-    // instead of manipulating raw SVG elements
     if (styleConfig.createShape) {
-      styleConfig.createShape(pattern); // Pass pattern object for shape creation
+      styleConfig.createShape(pattern); // Create pattern shapes
     }
 
     pattern.addTo(map);
@@ -180,7 +204,7 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
   }
 
   const groupA = features.filter(f => f.properties.activeAreaFillGroups?.includes(layerId));
-  if (groupA.length === 0) return;
+  if (groupA.length === 0) return areaFillLayers; // Return empty if nothing to fill
 
   const fillCellPolys = [];
 
@@ -196,7 +220,7 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
     if (clipped) fillCellPolys.push(clipped);
   }
 
-  if (fillCellPolys.length === 0) return;
+  if (fillCellPolys.length === 0) return areaFillLayers;
 
   let merged = fillCellPolys[0];
   for (let i = 1; i < fillCellPolys.length; i++) {
@@ -208,14 +232,18 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
   }
 
   if (merged) {
-    L.geoJSON(merged, {
+    const geoJsonLayer = L.geoJSON(merged, {
       style: {
         fillPattern: pattern, // pass pattern object, NOT 'url(#...)'
         weight: 0,
         fillOpacity: 1
       }
     }).addTo(map);
+
+    areaFillLayers.push(geoJsonLayer);
   }
+
+  return areaFillLayers;
 }
 
 /**
@@ -251,17 +279,23 @@ function createDefs() {
  * @param {Array} boundingBox - Optional bounding box [xmin, ymin, xmax, ymax] for Voronoi diagram (default: [14, 52, 23, 56]).
  */
 export function drawVoronoiLayers(features, legendList, map, clippingGeometry, boundingBox = [14, 52, 23, 56]) {
+  let voronoiLayers = {};
   const diagrams = computeVoronoiDiagram(features, boundingBox);
   if (!diagrams) return;
 
   const { delaunay, voronoi } = diagrams;
 
   for (const layer of legendList) {
+    voronoiLayers[layer.layer_id] = {};
+
     if (layer.border) {
-      drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry, map);
+      voronoiLayers[layer.layer_id].borders = drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry, map);
     }
+
     if (layer.area_fill) {
-      drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map);
+      voronoiLayers[layer.layer_id].areaFills = drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map);
     }
   }
+
+  return voronoiLayers;
 }
