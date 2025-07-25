@@ -82,7 +82,121 @@ function computeVoronoiDiagram(features, boundingBox) {
   return { delaunay, voronoi };
 }
 
+/**
+ * Returns a properly oriented border line segment between two Voronoi cells,
+ * ensuring that the side with the `layerId` feature is always on the left.
+ * 
+ * Uses a 2D cross product to determine if the feature cell lies to the left
+ * or right of the segment, and reverses the segment if needed.
+ * 
+ * @param {Array} a - [x, y] coordinates of the start point of the Voronoi edge.
+ * @param {Array} b - [x, y] coordinates of the end point of the Voronoi edge.
+ * @param {Object} f1 - First feature object.
+ * @param {Object} f2 - Second feature object.
+ * @param {Array} v1 - Polygon of Voronoi cell for feature f1 (array of [x, y] coords).
+ * @param {Array} v2 - Polygon of Voronoi cell for feature f2.
+ * @param {string} layerId - ID of the layer used to check for active border groups.
+ * @returns {Array|null} Oriented line segment as [[lat1, lng1], [lat2, lng2]], or null if invalid.
+ */
+function getOrientedBorderSegment(a, b, f1, f2, v1, v2, layerId) {
+  // Determine which feature has the active border
+  let cellPolygon;
+  if ((f1.properties.activeBorderGroups || []).includes(layerId)) {
+    cellPolygon = v1;
+  } else if ((f2.properties.activeBorderGroups || []).includes(layerId)) {
+    cellPolygon = v2;
+  } else {
+    return null;
+  }
 
+  // Compute centroid of the cell with the feature
+  const cellCenter = turf.centroid(turf.polygon([[...cellPolygon, cellPolygon[0]]])).geometry.coordinates;
+
+  // Convert points
+  const [ax, ay] = a;
+  const [bx, by] = b;
+  const [cx, cy] = cellCenter;
+
+  // Vector AB and AC
+  const abx = bx - ax, aby = by - ay;
+  const acx = cx - ax, acy = cy - ay;
+
+  // Cross product AB x AC
+  const cross = abx * acy - aby * acx;
+
+  // Reverse if cell is on the right
+  return cross < 0
+    ? [[b[1], b[0]], [a[1], a[0]]]
+    : [[a[1], a[0]], [b[1], b[0]]];
+}
+
+
+/**
+ * Merges individual polylines into longer connected lines by joining those
+ * that share endpoints. This ensures continuity of styling and reduces visual
+ * artifacts caused by fragmented line segments.
+ *
+ * The function compares line endpoints (with fixed precision) and concatenates
+ * them when they are found to be directly adjacent or reversed.
+ *
+ * @param {Array<Array<[number, number]>>} lines - An array of line segments,
+ *        where each line is an array of [latitude, longitude] coordinate pairs.
+ *        Example: [ [[lat1, lng1], [lat2, lng2]], [[lat2, lng2], [lat3, lng3]] ]
+ *
+ * @returns {Array<Array<[number, number]>>} - An array of merged polylines
+ *        where connected lines are grouped into single continuous line arrays.
+ *
+ * @example
+ * const segments = [
+ *   [[52.0, 21.0], [52.1, 21.1]],
+ *   [[52.1, 21.1], [52.2, 21.2]]
+ * ];
+ * const merged = connectBorderLines(segments);
+ * // Result: [[[52.0, 21.0], [52.1, 21.1], [52.2, 21.2]]]
+ */
+function connectBorderLines(lines) {
+  const connected = [];
+
+  const toKey = ([lat, lng]) => `${lat.toFixed(6)},${lng.toFixed(6)}`;
+  const endMap = new Map(); // Maps endpoint to polyline index
+
+  lines.forEach(line => {
+    const start = toKey(line[0]);
+    const end = toKey(line[line.length - 1]);
+
+    let merged = false;
+
+    for (let i = 0; i < connected.length; i++) {
+      const current = connected[i];
+      const cStart = toKey(current[0]);
+      const cEnd = toKey(current[current.length - 1]);
+
+      if (start === cEnd) {
+        connected[i] = current.concat(line.slice(1));
+        merged = true;
+        break;
+      } else if (end === cStart) {
+        connected[i] = line.concat(current.slice(1));
+        merged = true;
+        break;
+      } else if (start === cStart) {
+        connected[i] = line.reverse().concat(current.slice(1));
+        merged = true;
+        break;
+      } else if (end === cEnd) {
+        connected[i] = current.concat(line.reverse().slice(1));
+        merged = true;
+        break;
+      }
+    }
+
+    if (!merged) {
+      connected.push(line);
+    }
+  });
+
+  return connected;
+}
 
 /**
  * Draws the Voronoi cell borders for a given layer on the Leaflet map.
@@ -139,7 +253,10 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
     const intersections = turf.lineIntersect(line, clippingGeometry);
 
     if (startInside && endInside) {
-      borderLines.push([[a[1], a[0]], [b[1], b[0]]]);
+      const orientedSegment = getOrientedBorderSegment(a, b, f1, f2, v1, v2, layerId);
+      if (orientedSegment) {
+        borderLines.push(orientedSegment);
+      }
     } else if (startInside || endInside) {
       const inside = startInside ? a : b;
       if (intersections.features.length > 0) {
@@ -150,40 +267,32 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
   }
 
   const borderStyle = borderStyles[layer.border] || borderStyles.solid_line;
+  const mergedLines = connectBorderLines(borderLines);
 
-  borderLines.forEach(line => {
-    // Always create the base polyline (invisible if using only decorator)
+  mergedLines.forEach(line => {
     const polyline = L.polyline(line, {
       color: borderStyle.color,
       weight: borderStyle.weight,
       dashArray: borderStyle.dashArray || null
     }).addTo(map);
 
-    borderLayers.push(polyline); // Save reference to base line
+    borderLayers.push(polyline);
 
-    if (layer.border === "solid_with_dots_on_side") {
-      const decorator = L.polylineDecorator(polyline, {
-        patterns: [
-          {
-            offset: 0,
-            repeat: "25px",
-            symbol: L.Symbol.marker({
-              rotate: true,
-              markerOptions: {
-                icon: L.divIcon({
-                  className: "dot-marker-icon",
-                  iconSize: [6, 6],
-                  iconAnchor: [6.5, 3] // 6px radius + 3px left offset
-                })
-              }
-            })
-          }
-        ]
-      }).addTo(map);
-
-      borderLayers.push(decorator);
+    const decoratorCfg = borderStyle.decorator;
+    if (decoratorCfg) {
+      const symbolFactory = L.Symbol[decoratorCfg.type];
+      if (symbolFactory) {
+        const symbol = symbolFactory(decoratorCfg.symbolOptions || {});
+        const decorator = L.polylineDecorator(polyline, {
+          patterns: [{
+            offset: decoratorCfg.offset,
+            repeat: decoratorCfg.repeat,
+            symbol
+          }]
+        }).addTo(map);
+        borderLayers.push(decorator);
+      }
     }
-
   });
 
   return borderLayers; // Return all added layers

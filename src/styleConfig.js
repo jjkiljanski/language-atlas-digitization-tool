@@ -35,13 +35,162 @@ export const borderStyles = {
       backgroundColor: "#000"
     },
     decorator: {
-      // Define parameters for the dots along the line
-      offset: 6, // pixels offset to one side (adjust as needed)
-      repeat: 10, // distance between dots in pixels
-      radius: 2, // radius of each dot in pixels
-      fillColor: "#000",
-      fillOpacity: 1,
-      stroke: false,
+      type: "marker",
+      offset: "0%",
+      repeat: "25px",
+      symbolOptions: {
+        rotate: true,
+        markerOptions: {
+          icon: L.divIcon({
+            className: "", // Removes default Leaflet styling
+            html: `<div style="width:6px;height:6px;background:#000;border-radius:50%;border:none;margin:0;padding:0;"></div>`,
+            iconSize: [6, 6],
+            iconAnchor: [6.5, 3]
+          })
+        }
+      }
+    }
+  },
+  solid_with_rectangles_on_side: {
+    color: "#000",
+    weight: 2,
+    dashArray: null,
+    legendStyle: {
+      borderTop: null,
+      backgroundColor: "#000"
+    },
+    decorator: {
+      type: "marker",
+      offset: "0%",
+      repeat: "25px",
+      symbolOptions: {
+        rotate: true,
+        markerOptions: {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="width:6px;height:4px;background:#000;margin:0;padding:0;"></div>`,
+            iconSize: [6, 4],
+            iconAnchor: [6.5, 2]  // Slightly shifted left of the line
+          })
+        }
+      }
+    }
+  },
+  solid_with_horizontal_lines_on_side: {
+    color: "#000",
+    weight: 2,
+    dashArray: null,
+    legendStyle: {
+      borderTop: null,
+      backgroundColor: "#000"
+    },
+    decorator: {
+      type: "marker",
+      offset: "0%",
+      repeat: "25px",
+      symbolOptions: {
+        rotate: true,
+        markerOptions: {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="
+              width: 8px; 
+              height: 2px; 
+              background: #000; 
+              margin: 0; 
+              padding: 0;
+              ">
+            </div>`,
+            iconSize: [8, 2],
+            iconAnchor: [8.5, 1]  // Shift left, centered vertically
+          })
+        }
+      }
+    }
+  },
+  solid_with_double_horizontal_lines_on_side: {
+    color: "#000",
+    weight: 2,
+    dashArray: null,
+    legendStyle: {
+      borderTop: null,
+      backgroundColor: "#000"
+    },
+    decorator: {
+      type: "marker",
+      offset: "0%",
+      repeat: "25px",
+      symbolOptions: {
+        rotate: true,
+        markerOptions: {
+          icon: L.divIcon({
+            className: "",
+            html: `
+              <div style="display: flex; flex-direction: column; gap: 2px; transform: translateX(-2px);">
+                <div style="width: 8px; height: 2px; background: #000;"></div>
+                <div style="width: 8px; height: 2px; background: #000;"></div>
+              </div>
+            `,
+            iconSize: [8, 6],
+            iconAnchor: [8, 3]  // Horizontally shifted left (9px), vertically centered (3px)
+          })
+        }
+      }
+    }
+  },
+  solid_with_empty_dots_on_side: {
+    color: "#000",
+    weight: 2,
+    dashArray: null,
+    legendStyle: {
+      borderTop: null,
+      backgroundColor: "#000"
+    },
+    decorator: {
+      type: "marker",
+      offset: "0%",
+      repeat: "25px",
+      symbolOptions: {
+        rotate: true,
+        markerOptions: {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="width:6px;height:6px;background:transparent;border:1px solid #000;border-radius:50%;margin:0;padding:0;"></div>`,
+            iconSize: [6, 6],
+            iconAnchor: [6.5, 3]
+          })
+        }
+      }
+    }
+  },
+  solid_with_triangles_on_side: {
+    color: "#000",
+    weight: 2,
+    dashArray: null,
+    legendStyle: {
+      borderTop: null,
+      backgroundColor: "#000"
+    },
+    decorator: {
+      type: "marker",
+      offset: "0%",
+      repeat: "25px",
+      symbolOptions: {
+        rotate: true,
+        angleCorrection: 0,
+        markerOptions: {
+          icon: L.divIcon({
+            html: `
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10" style="display:block">
+                <polygon points="0,0 0,10 8.66,5" fill="#000" />
+              </svg>
+            `,
+            className: "", // <-- no default Leaflet class
+            iconSize: [10, 10],
+            iconAnchor: [0, 8.66]
+          })
+        }
+      }
     }
   }
 };

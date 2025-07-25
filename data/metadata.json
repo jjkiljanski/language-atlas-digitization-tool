@@ -111,12 +111,12 @@
             {
                 "layer_id": "7",
                 "name": "stwardnienie *s', *z', *z', *ʐ'",
-                "border": "solid_line"
+                "border": "solid_with_double_horizontal_lines_on_side"
             },
             {
                 "layer_id": "8",
                 "name": "kontynuanty *ā w pozycji niezależnej",
-                "border": "dashed_line"
+                "border": "solid_with_triangles_on_side"
             },
             {
                 "layer_id": "9",
@@ -131,12 +131,12 @@
             {
                 "layer_id": "11",
                 "name": "o̊, o (też w dyfton. o̊u̯, ou̯) ≤ *ā",
-                "border": ""
+                "border": "solid_with_empty_dots_on_side"
             },
             {
                 "layer_id": "12",
                 "name": "pozakasz. przebieg granicy dyftongicznej wymowy kontynuantów *ŏ w pozycjach *Kŏ, *Pŏ, *Tŏ",
-                "border": ""
+                "border": "solid_with_horizontal_lines_on_side"
             },
             {
                 "layer_id": "13",
