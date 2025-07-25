@@ -152,8 +152,37 @@ function drawVoronoiBorders(layer, features, voronoi, delaunay, clippingGeometry
   const borderStyle = borderStyles[layer.border] || borderStyles.solid_line;
 
   borderLines.forEach(line => {
-    const polyline = L.polyline(line, borderStyle).addTo(map);
-    borderLayers.push(polyline); // Save reference
+    // Always create the base polyline (invisible if using only decorator)
+    const polyline = L.polyline(line, {
+      color: borderStyle.color,
+      weight: borderStyle.weight,
+      dashArray: borderStyle.dashArray || null
+    }).addTo(map);
+
+    borderLayers.push(polyline); // Save reference to base line
+
+    if (layer.border === "solid_with_dots_on_side") {
+      const decorator = L.polylineDecorator(polyline, {
+        patterns: [
+          {
+            offset: 0,
+            repeat: "8px",
+            symbol: L.Symbol.marker({
+              markerOptions: {
+                icon: L.divIcon({
+                  className: "dot-marker-icon",
+                  iconSize: [6, 6],
+                  iconAnchor: [9, 3] // 6px radius + 3px left offset
+                })
+              }
+            })
+          }
+        ]
+      }).addTo(map);
+
+      borderLayers.push(decorator);
+    }
+
   });
 
   return borderLayers; // Return all added layers
@@ -254,28 +283,6 @@ function drawVoronoiAreaFill(layer, features, voronoi, clippingGeometry, map) {
   }
 
   return areaFillLayers;
-}
-
-/**
- * Ensures that <defs> exists in the SVG. Creates a hidden SVG container if necessary.
- * @returns {SVGDefsElement}
- */
-function createDefs() {
-  let svg = document.querySelector("svg");
-  if (!svg) {
-    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.style.position = "absolute";
-    svg.style.width = 0;
-    svg.style.height = 0;
-    document.body.appendChild(svg);
-  }
-
-  let defs = svg.querySelector("defs");
-  if (!defs) {
-    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-    svg.appendChild(defs);
-  }
-  return defs;
 }
 
 

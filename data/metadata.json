@@ -126,7 +126,7 @@
             {
                 "layer_id": "10",
                 "name": "å (też w dyftongu åu̯) ≤ ā",
-                "border": ""
+                "border": "solid_with_dots_on_side"
             },
             {
                 "layer_id": "11",

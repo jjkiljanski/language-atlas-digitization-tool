@@ -157,3 +157,22 @@ body, select, label, h1, h2, h3, div {
 .tooltip-legend-name {
   font-family: 'ZRCola', sans-serif;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+.dot-marker-icon {
+  background-color: black;
+  border-radius: 50%;
+  width: 6px;
+  height: 6px;
+}

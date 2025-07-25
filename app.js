@@ -250,6 +250,7 @@ async function init() {
     authorBox.textContent = metadata[0].author || "";
     loadMap(metadata[0].map_id);
   }
+
 }
 
 init();

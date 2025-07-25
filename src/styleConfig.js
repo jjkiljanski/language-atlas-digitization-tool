@@ -25,6 +25,24 @@ export const borderStyles = {
       borderTop: "2px dotted #000",
       backgroundColor: "transparent"
     }
+  },
+  solid_with_dots_on_side: {
+    color: "#000",
+    weight: 2,
+    dashArray: null,
+    legendStyle: {
+      borderTop: null,
+      backgroundColor: "#000"
+    },
+    decorator: {
+      // Define parameters for the dots along the line
+      offset: 6, // pixels offset to one side (adjust as needed)
+      repeat: 10, // distance between dots in pixels
+      radius: 2, // radius of each dot in pixels
+      fillColor: "#000",
+      fillOpacity: 1,
+      stroke: false,
+    }
   }
 };
 
