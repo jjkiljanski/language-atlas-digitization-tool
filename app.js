@@ -2,40 +2,200 @@ import { preloadAllSymbols, getSymbol } from './src/symbolLoader.js';
 import { addSymbolLayerToMap, drawVoronoiLayers } from './src/drawingUtils.js';
 import { borderStyles, areaFillStyles } from './src/styleConfig.js';
 
-// Define map layer
 
-const map = L.map("map").setView([54.0, 18.0], 8.2);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
-  subdomains: "abcd",
-  maxZoom: 19
-}).addTo(map);
+////////////////////////////////////////////// Initial load of all data and layout setup //////////////////////////////////////////////////
 
-// Define legend in the top-right corner of the map
-const legendControl = L.control({ position: 'topright' });
+let map;
+let metadata;
+let editing_mode = false;
 
-legendControl.onAdd = function(map) {
-  const div = L.DomUtil.create('div', 'legend-container');
-  div.id = 'legend';
-  return div;
-};
+async function init() {
+  /**************************** Define map layer ****************************/
+  map = L.map("map").setView([54.0, 18.0], 8.2);
 
-legendControl.addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 19
+  }).addTo(map);
 
-// Load points coordinates and names
-const pointsRawText = await fetch("data/points.csv").then(res => res.text());
-const points = d3.dsvFormat(";").parse(pointsRawText);
+  /**************************** Load external data ****************************/
+  const [pointsRawText, dataRawText, metadataRaw] = await Promise.all([
+    fetch("data/points.csv").then(res => res.text()),
+    fetch("data/data.csv").then(res => res.text()),
+    fetch(`data/metadata.json?nocache=${Date.now()}`).then(res => res.json())
+  ]);
 
-// Load data
-const dataRawText = await fetch("data/data.csv").then(res => res.text());
-const data = d3.dsvFormat(";").parse(dataRawText);
+  const points = d3.dsvFormat(";").parse(pointsRawText);
+  const data = d3.dsvFormat(";").parse(dataRawText);
+  metadata = metadataRaw;
 
-//////////////////////////////////// Define Legend ////////////////////////////////////
+  // Make points and data available globally if needed
+  window.points = points;
+  window.data = data;
+
+  /**************************** Add Legend Box ****************************/
+  const legendControl = L.control({ position: "topright" });
+
+  legendControl.onAdd = function (map) {
+    const div = L.DomUtil.create("div", "legend-container");
+    div.id = "legend";
+    return div;
+  };
+
+  legendControl.addTo(map);
+
+  /**************************** Render UI ****************************/
+  renderSidebar();
+}
+
+/**************************** Function for map cleaning ****************************/
+function cleanMap() {
+  console.log("Cleaning map...")
+
+  // Clean Legend
+  const container = document.querySelector('.legend-container');
+  container.innerHTML = "";
+
+  // Clean Map
+  if (symbolLayer) map.removeLayer(symbolLayer);
+  if (voronoiLayers) {
+    for (const layerId in voronoiLayers) {
+      const layerGroup = voronoiLayers[layerId];
+
+      // Remove border layers if present
+      if (layerGroup.borders) {
+        layerGroup.borders.forEach(layer => map.removeLayer(layer));
+      }
+
+      // Remove area fill layers if present
+      if (layerGroup.areaFills) {
+        layerGroup.areaFills.forEach(layer => map.removeLayer(layer));
+      }
+    }
+  }
+}
+
+////////////////////////////////////////////////////// Logic for sidebar rendering //////////////////////////////////////////////////////////////
+
+function renderSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  sidebar.innerHTML = ""; // Clear existing content
+
+  if (editing_mode) {
+    // BACK BUTTON
+    const backBtn = document.createElement("button");
+    backBtn.textContent = "← Powrót";
+    backBtn.style.marginBottom = "10px";
+    backBtn.id = "back-button";
+    backBtn.onclick = () => {
+      editing_mode = false;
+      renderSidebar(); // Re-render normal view
+    };
+    sidebar.appendChild(backBtn);
+
+    // Editing mode UI
+    const heading = document.createElement("strong");
+    heading.textContent = "Istniejące warstwy";
+    sidebar.appendChild(heading);
+
+    const layerList = document.createElement("ul");
+    layerList.id = "layer-list"; // Empty initially
+    sidebar.appendChild(layerList);
+
+    const downloadBtn = document.createElement("button");
+    downloadBtn.textContent = "Pobierz gotową mapę";
+    downloadBtn.style.marginTop = "auto";
+    downloadBtn.id = "download-map-button";
+    sidebar.appendChild(downloadBtn);
+
+    cleanMap(); // Clear map for editing mode
+
+  } else {
+    // Normal (viewing) mode UI
+    const labelSelect = document.createElement("label");
+    labelSelect.setAttribute("for", "map-select");
+    labelSelect.id = "map-label";
+    labelSelect.textContent = "Wybierz mapę:";
+    sidebar.appendChild(labelSelect);
+
+    const select = document.createElement("select");
+    select.id = "map-select";
+    sidebar.appendChild(select);
+
+    const labelAuthor = document.createElement("label");
+    labelAuthor.setAttribute("for", "map-author");
+    labelAuthor.id = "author-label";
+    labelAuthor.textContent = "Autor:";
+    sidebar.appendChild(labelAuthor);
+
+    const authorBox = document.createElement("div");
+    authorBox.id = "map-author";
+    sidebar.appendChild(authorBox);
+
+    const loadMapBtn = document.createElement("button");
+    loadMapBtn.id = "load-map-button";
+    loadMapBtn.textContent = "Załaduj mapę";
+    sidebar.appendChild(loadMapBtn);
+
+    const newMapBtn = document.createElement("button");
+    newMapBtn.id = "new-map-button";
+    newMapBtn.textContent = "Stwórz nową mapę";
+    sidebar.appendChild(newMapBtn);
+
+    // Button logic
+    loadMapBtn.onclick = () => {
+      document.getElementById("load-map-modal").style.display = "block";
+    };
+
+    newMapBtn.onclick = () => {
+      editing_mode = true;
+      renderSidebar();
+    };
+
+    // Re-populate map selection and author if metadata is available
+    if (metadata && Array.isArray(metadata)) {
+      metadata.forEach(entry => {
+        const opt = document.createElement("option");
+        opt.value = entry.map_id;
+        opt.textContent = entry.map_id + " " + entry.map_name;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener("change", () => {
+        const selectedId = select.value;
+        const selectedMeta = metadata.find(m => m.map_id === selectedId);
+
+        if (selectedMeta) {
+          authorBox.textContent = selectedMeta.author || "";
+        }
+
+        drawMap(selectedId, metadata);
+      });
+
+      if (metadata.length > 0) {
+        select.value = metadata[0].map_id;
+        authorBox.textContent = metadata[0].author || "";
+        drawMap(metadata[0].map_id, metadata);
+      }
+    }
+  }
+}
+
+
+////////////////////////////////////////////////////// Logic for map creating //////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////// Logic for map loading ///////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////// Logic for map showing ///////////////////////////////////////////////////////////////
+
+/**************************** Define Legend ****************************/
 
 let symbolLayer;
 let voronoiLayers;
-let metadata = [];
 
 function updateLegend(legendList, mapName, voronoiLayers, map) {
   const container = document.querySelector('.legend-container');
@@ -161,33 +321,17 @@ function updateLegend(legendList, mapName, voronoiLayers, map) {
   });
 }
 
-//////////////////////////////////// Load Map data and draw them on the map ///////////////////////////////////
+/**************************** Draw Legend ****************************/
 
-async function loadMap(mapId) {
+async function drawMap(mapId, metadata) {
   const mapMeta = metadata.find(m => m.map_id === mapId);
   if (!mapMeta) return;
 
   const legendList = mapMeta.layers || [];
 
-  if (symbolLayer) map.removeLayer(symbolLayer);
-  if (voronoiLayers) {
-    for (const layerId in voronoiLayers) {
-      const layerGroup = voronoiLayers[layerId];
+  cleanMap();
 
-      // Remove border layers if present
-      if (layerGroup.borders) {
-        layerGroup.borders.forEach(layer => map.removeLayer(layer));
-      }
-
-      // Remove area fill layers if present
-      if (layerGroup.areaFills) {
-        layerGroup.areaFills.forEach(layer => map.removeLayer(layer));
-      }
-    }
-  }
-
-
-  ////////////// Define features list with map data ///////////////
+  /**************************** Define features list with map data ****************************/
 
   const features = [];
 
@@ -244,7 +388,7 @@ async function loadMap(mapId) {
     });
   }
 
-  ////////////// Draw data on the map /////////////
+  /**************************** Draw data on the map ****************************/
 
   symbolLayer = addSymbolLayerToMap(features, map);
 
@@ -269,43 +413,6 @@ async function loadMap(mapId) {
   });
 }
 
-//////////////////////////////////// Initialize Everything ///////////////////////////////////
-async function init() {
-  await preloadAllSymbols(); // Load all symbols into svgCache
-
-  // Fetch metadata from JSON
-  metadata = await fetch(`data/metadata.json?nocache=${Date.now()}`).then(res => res.json());
-
-  const select = document.getElementById("map-select");
-  const authorBox = document.getElementById("map-author");
-
-  // Populate dropdown options from metadata
-  metadata.forEach(entry => {
-    const opt = document.createElement("option");
-    opt.value = entry.map_id;
-    opt.textContent = entry.map_id + " " + entry.map_name;
-    select.appendChild(opt);
-  });
-
-  // Add listener to update map and author on selection
-  select.addEventListener("change", () => {
-    const selectedId = select.value;
-    const selectedMeta = metadata.find(m => m.map_id === selectedId);
-
-    if (selectedMeta) {
-      authorBox.textContent = selectedMeta.author || "";
-    }
-
-    loadMap(selectedId);
-  });
-
-  // Load initial map and author
-  if (metadata.length > 0) {
-    select.value = metadata[0].map_id;
-    authorBox.textContent = metadata[0].author || "";
-    loadMap(metadata[0].map_id);
-  }
-
-}
+///////////////////////////////////////////////////// Initialize Everything //////////////////////////////////////////////////////////
 
 init();
