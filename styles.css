@@ -215,3 +215,88 @@ body, select, label, h1, h2, h3, div {
   width: 6px;
   height: 6px;
 }
+
+
+
+
+/********************************** Editing map layout *******************************************/
+.right-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100vh;
+  /* REMOVE this: overflow-y: auto; */ 
+  background-color: #f0f0f0;
+  padding: 16px;
+  border-left: 1px solid #ccc;
+  box-shadow: -2px 0 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Scrollable container wrapping selected points + controls */
+#selected-points-container {
+  flex: 1 1 auto;      /* take available vertical space */
+  overflow-y: auto;    /* scroll vertically if content too big */
+  margin-bottom: 8px;
+  border: 1px solid #ccc;
+  padding: 8px;
+  background: #f9f9f9;
+}
+
+/* If you have a buttons container below selected-points-container, give it fixed height or let it be inside scroll */
+#multi-select-controls {
+  flex-shrink: 0; /* don’t shrink, keep buttons visible */
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Individual point box */
+.point-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border: 1px solid #ddd;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.point-box.active {
+  background-color: #e0ffe0; /* green-ish background for active */
+}
+
+.remove-btn {
+  color: red;
+  cursor: pointer;
+  margin-left: 8px;
+  font-weight: bold;
+}
+
+/* Yellow outline for rectangle-selected points */
+.point-marker.selected-outline {
+  box-shadow: 0 0 0 4px yellow;
+  border-radius: 50%;
+  transition: box-shadow 0.3s ease;
+}
+
+/* Base style for point markers */
+.point-marker {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+  user-select: none;
+  font-size: 14px;
+}

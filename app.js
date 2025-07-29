@@ -1,5 +1,5 @@
 import { preloadAllSymbols, getSymbol, getAllSymbolNames } from './src/symbolLoader.js';
-import { addSymbolLayerToMap, drawVoronoiLayers } from './src/drawingUtils.js';
+import { addSymbolLayerToMap, drawVoronoiLayers, addEmptyPointsLayer } from './src/drawingUtils.js';
 import { borderStyles, areaFillStyles } from './src/styleConfig.js';
 
 
@@ -461,11 +461,15 @@ function createDecoratorSelector(decoratorType, items) {
   return container;
 }
 
+/************************************************* Layer editing sidebar *******************************************/
+
 function layerEditSidebar() {
   document.getElementById("right-sidebar")?.remove();
 
   const rightSidebar = document.createElement("aside");
   rightSidebar.id = "right-sidebar";
+  rightSidebar.classList.add("right-sidebar");
+  // You can remove inline styles now since CSS covers them, but left here just in case
   rightSidebar.style.position = "absolute";
   rightSidebar.style.top = "0";
   rightSidebar.style.right = "0";
@@ -522,12 +526,18 @@ function layerEditSidebar() {
   decoratorContainer.style.marginTop = "16px";
   rightSidebar.appendChild(decoratorContainer);
 
+  // Container for selected points label + scrollable container
+  let selectedPointsLabel = null;
+  let selectedPointsContainer = null;
+
   typeSelect.addEventListener("change", () => {
     decoratorContainer.innerHTML = ""; // Clear old
+    if (selectedPointsLabel) selectedPointsLabel.remove();
+    if (selectedPointsContainer) selectedPointsContainer.remove();
 
     const selected = typeSelect.value;
     if (!selected) {
-      // No type selected, no decorator dropdown shown
+      // No type selected, no decorator dropdown or points container shown
       return;
     }
 
@@ -537,7 +547,7 @@ function layerEditSidebar() {
     if (selected === "Symbol") {
       items = getAllSymbolNames();
       selectedType = "symbol";
-      console.log(`Possible symbol options: ${items}`)
+      console.log(`Possible symbol options: ${items}`);
     } else if (selected === "Powierzchnia") {
       items = Object.keys(areaFillStyles || {});
       selectedType = "areaFill";
@@ -549,10 +559,21 @@ function layerEditSidebar() {
     const decoratorSelector = createDecoratorSelector(selectedType, items);
     decoratorContainer.appendChild(decoratorSelector);
 
+    // Add label "Wybrane punkty"
+    selectedPointsLabel = document.createElement("label");
+    selectedPointsLabel.textContent = "Wybrane punkty";
+    selectedPointsLabel.style.marginTop = "16px";
+    rightSidebar.appendChild(selectedPointsLabel);
+
+    // Add scrollable container below label
+    selectedPointsContainer = document.createElement("div");
+    selectedPointsContainer.id = "selected-points-container";
+    rightSidebar.appendChild(selectedPointsContainer);
+
     decoratorSelector.addEventListener("decoratorSelected", (e) => {
       console.log("Selected decorator:", e.detail.decoratorName);
       drawMap();
-      // Save selection, update UI, etc.
+      // You can update selectedPointsContainer here if needed
     });
   });
 
@@ -723,6 +744,9 @@ async function drawMap(mapId = "", metadata) {
   }
   else {
     const features = loadFeatures();
+
+    // Add symbols to the map
+    symbolLayer = addEmptyPointsLayer(features, map)
   }
 }
 
