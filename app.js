@@ -72,7 +72,6 @@ async function init() {
 
 /**************************** Function for map cleaning ****************************/
 function cleanMap() {
-  console.log("Cleaning map...")
 
   // Clean Legend
   const container = document.querySelector('.legend-container');
@@ -95,6 +94,15 @@ function cleanMap() {
       }
     }
   }
+}
+
+// Function for cleaning up the editing environment
+function cleanEditingEnv() {
+  document.getElementById("right-sidebar")?.remove(); // remove the right sidebar
+  document.querySelectorAll(".layer-box").forEach(b => { // color the background of all the layers to neutral
+    b.style.backgroundColor = "";
+  });
+  map.removeLayer(symbolLayer); // remove the points from the map
 }
 
 /**************************** Function for GeoJSON creation for plotting ****************************/
@@ -172,6 +180,42 @@ function renderSidebar() {
   sidebar.innerHTML = ""; // Clear existing content
 
   if (editing_mode) {
+    // Master data structure for CSV export
+    const layerCsvData = points.map(p => ({
+      point_id: p.point_id  // Copy just the point_id from the original points
+    }));
+    // Master metadata dict
+    let mapMetadata = {"layers": []}
+
+    function saveEditedLayer(layerMetadata, selectedIds) {
+      // Add layer to all layers' metadata
+      mapMetadata["layers"].push(layerMetadata)
+
+      // Fill this column: 1 if selected, 0 if not
+        for (const row of layerCsvData) {
+          row[layerMetadata["layer_id"]] = selectedIds.includes(row.point_id) ? 1 : 0;
+        }
+    }
+
+    function getSelectedPointIds(selectedColumn) {
+      return layerCsvData
+        .filter(row => row[selectedColumn] === 1)
+        .map(row => row.point_id);
+    }
+
+    function removeLayer(layerId) {
+      // Remove the layer from mapMetadata.layers
+      mapMetadata["layers"] = mapMetadata["layers"].filter(layer => layer.layer_id !== layerId);
+
+      // Remove the column from each row in layerCsvData
+      for (const row of layerCsvData) {
+        delete row[layerId];
+      }
+    }
+
+    // Holder for the next layer id that should be taken
+    let smallestFreeLayerId = 0
+
     // BACK BUTTON
     const backBtn = document.createElement("button");
     backBtn.textContent = "← Powrót";
@@ -260,17 +304,69 @@ function renderSidebar() {
     addBtn.onclick = () => {
       const layerList = document.getElementById("layer-list");
 
-      // Create new list item
-      const li = document.createElement("li");
-      li.textContent = "Nowa warstwa";
-      li.style.backgroundColor = "#f8d7da"; // light red
-      li.style.padding = "4px 8px";
-      li.style.margin = "4px 0";
-      li.style.borderRadius = "4px";
+      const layerId = smallestFreeLayerId++; // assign and increment
+      const layerName = `Warstwa ${layerId}`;
 
-      layerList.appendChild(li);
+      const box = document.createElement("div");
+      box.className = "layer-box";
+      box.style.display = "flex";
+      box.style.alignItems = "center";
+      box.style.justifyContent = "space-between";
+      box.style.padding = "6px 10px";
+      box.style.margin = "6px 0";
+      box.style.borderRadius = "4px";
+      box.style.backgroundColor = "";
+      box.style.border = "1px solid black";
+      box.id = `layer-box-${layerId}`;
+      box._layerId = layerId;
 
-      layerEditSidebar(); // Show the right-hand sidebar
+      const label = document.createElement("span");
+      label.textContent = layerName;
+      label.style.flex = "1";
+
+      // Pen icon (Edit)
+      const editIcon = document.createElement("span");
+      editIcon.innerHTML = "✎";
+      editIcon.title = "Edytuj";
+      editIcon.style.cursor = "pointer";
+      editIcon.style.marginLeft = "8px";
+
+      editIcon.onclick = () => {
+        let layerMetadata = mapMetadata.layers.find(layer => layer.layer_id === layerId);
+        if (!layerMetadata) {
+          layerMetadata = {"layer_id": layerId};
+        }
+        const preselectedPoints = getSelectedPointIds(layerId);
+        layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints);
+        // Optional: visually mark this box as active
+        document.querySelectorAll(".layer-box").forEach(b => {
+          b.style.backgroundColor = ""; // reset
+        });
+        box.style.backgroundColor = "#f8d7da"; // mark as active
+      };
+
+      // X icon (Delete)
+      const deleteIcon = document.createElement("span");
+      deleteIcon.innerHTML = "✕";
+      deleteIcon.title = "Usuń";
+      deleteIcon.style.cursor = "pointer";
+      deleteIcon.style.marginLeft = "8px";
+
+      deleteIcon.onclick = () => {
+        box.remove();
+        removeLayer(layerId);
+        cleanEditingEnv();
+      };
+
+      const controls = document.createElement("div");
+      controls.style.display = "flex";
+      controls.appendChild(editIcon);
+      controls.appendChild(deleteIcon);
+
+      box.appendChild(label);
+      box.appendChild(controls);
+
+      layerList.appendChild(box);
     };
 
     headingWrapper.appendChild(heading);
@@ -288,6 +384,54 @@ function renderSidebar() {
     downloadBtn.style.marginTop = "auto";
     downloadBtn.id = "download-map-button";
     sidebar.appendChild(downloadBtn);
+
+    downloadBtn.addEventListener("click", () => {
+      // 1. Expand mapMetadata
+      mapMetadata["map_id"] = idInput.value;
+      mapMetadata["map_name"] = nameInput.value;
+      mapMetadata["author"] = authorInput.value;
+
+      const mapId = mapMetadata["map_id"];
+
+      // 2. Prepare headers
+      const originalHeaders = Object.keys(layerCsvData[0]);
+      const renamedHeaders = originalHeaders.map(col =>
+        col === "point_id" ? "point_id" : `${mapId}/${col}`
+      );
+
+      // 3. Transform data with renamed keys
+      const renamedCsvData = layerCsvData.map(row => {
+        const renamedRow = {};
+        for (const key of originalHeaders) {
+          const newKey = key === "point_id" ? "point_id" : `${mapId}/${key}`;
+          renamedRow[newKey] = row[key];
+        }
+        return renamedRow;
+      });
+
+      // 4. Convert to semicolon-separated CSV
+      const csvRows = renamedCsvData.map(row =>
+        renamedHeaders.map(header => JSON.stringify(row[header] ?? "")).join(";")
+      );
+      const csvContent = [renamedHeaders.join(";"), ...csvRows].join("\n");
+
+      const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const csvUrl = URL.createObjectURL(csvBlob);
+      const csvLink = document.createElement("a");
+      csvLink.href = csvUrl;
+      csvLink.download = "mapa_dane.csv";
+      csvLink.click();
+      URL.revokeObjectURL(csvUrl);
+
+      // 5. Download mapMetadata as JSON
+      const jsonBlob = new Blob([JSON.stringify(mapMetadata, null, 2)], { type: "application/json" });
+      const jsonUrl = URL.createObjectURL(jsonBlob);
+      const jsonLink = document.createElement("a");
+      jsonLink.href = jsonUrl;
+      jsonLink.download = "mapa_metadata.json";
+      jsonLink.click();
+      URL.revokeObjectURL(jsonUrl);
+    });
 
     cleanMap(); // Clear map for editing mode
   } else {
@@ -348,13 +492,13 @@ function renderSidebar() {
           authorBox.textContent = selectedMeta.author || "";
         }
 
-        drawMap(selectedId, metadata);
+        drawMap(selectedId=selectedId, metadata=metadata, undefined);
       });
 
       if (metadata.length > 0) {
         select.value = metadata[0].map_id;
         authorBox.textContent = metadata[0].author || "";
-        drawMap(metadata[0].map_id, metadata);
+        drawMap(metadata[0].map_id, metadata, undefined);
       }
     }
   }
@@ -363,7 +507,7 @@ function renderSidebar() {
 
 ////////////////////////////////////////////////////// Logic for map creating //////////////////////////////////////////////////////////////
 
-function createDecoratorSelector(decoratorType, items) {
+function createDecoratorSelector(decoratorType, items, prechosenOption = "") {
   const container = document.createElement("div");
   container.style.position = "relative";
   container.style.userSelect = "none";
@@ -405,6 +549,24 @@ function createDecoratorSelector(decoratorType, items) {
   dropdown.style.display = "none";
   container.appendChild(dropdown);
 
+  // Function to update selected display with chosen name
+  function setSelected(name) {
+    iconWrapper.innerHTML = "";
+    iconWrapper.appendChild(createLegendIcon(decoratorType, name, false));
+    selectedDisplay.textContent = "";
+    selectedDisplay.appendChild(iconWrapper);
+    const label = document.createElement("span");
+    label.textContent = name;
+    selectedDisplay.appendChild(label);
+    selectedDisplay.appendChild(arrow);
+
+    // Dispatch event to notify external listeners
+    container.dispatchEvent(new CustomEvent("decoratorSelected", {
+      detail: { decoratorType, decoratorName: name },
+      bubbles: true
+    }));
+  }
+
   // Populate dropdown options
   items.forEach(name => {
     const option = document.createElement("div");
@@ -427,21 +589,8 @@ function createDecoratorSelector(decoratorType, items) {
     option.appendChild(label);
 
     option.addEventListener("click", () => {
-      // Update selected display
-      iconWrapper.innerHTML = "";
-      iconWrapper.appendChild(createLegendIcon(decoratorType, name, false));
-      selectedDisplay.textContent = "";
-      selectedDisplay.appendChild(iconWrapper);
-      selectedDisplay.appendChild(label);
-      selectedDisplay.appendChild(arrow);
-
+      setSelected(name);
       dropdown.style.display = "none";
-
-      // Dispatch an event or callback here if you want to handle selection externally
-      container.dispatchEvent(new CustomEvent("decoratorSelected", {
-        detail: { decoratorType, decoratorName: name },
-        bubbles: true
-      }));
     });
 
     dropdown.appendChild(option);
@@ -458,12 +607,18 @@ function createDecoratorSelector(decoratorType, items) {
     }
   });
 
+  // If prechosenOption is valid, set it as selected right away
+  if (prechosenOption && items.includes(prechosenOption)) {
+    setSelected(prechosenOption);
+  }
+
   return container;
 }
 
 /************************************************* Layer editing sidebar *******************************************/
 
-function layerEditSidebar() {
+function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
+
   document.getElementById("right-sidebar")?.remove();
 
   const rightSidebar = document.createElement("aside");
@@ -496,6 +651,11 @@ function layerEditSidebar() {
   nameInput.placeholder = "np. granice dialektów";
   nameInput.style.flex = "1";
 
+  // Check if layerMetadata has a key "name" and set the input value
+  if (layerMetadata && "name" in layerMetadata) {
+    nameInput.value = layerMetadata.name;
+  }
+
   nameRow.appendChild(nameInput);
   rightSidebar.appendChild(nameRow);
 
@@ -521,6 +681,19 @@ function layerEditSidebar() {
     typeSelect.appendChild(opt);
   });
 
+  const textToDecorTypeId = {
+    "Symbol": "symbol",
+    "Powierzchnia": "areaFill",
+    "Granica": "border"
+  };
+
+  // Check if the decorator type value was already passed in the metadata. If yes, use it.
+  const keys = { symbol: "Symbol", areaFill: "Powierzchnia", border: "Granica" };
+  const layerKeys = Object.keys(keys);
+  const preselectedKey = layerKeys.find(key => layerMetadata?.hasOwnProperty(key));
+  typeSelect.value = preselectedKey ? keys[preselectedKey] : "";
+
+
   // Placeholder for decorator select
   const decoratorContainer = document.createElement("div");
   decoratorContainer.style.marginTop = "16px";
@@ -529,56 +702,121 @@ function layerEditSidebar() {
   // Container for selected points label + scrollable container
   let selectedPointsLabel = null;
   let selectedPointsContainer = null;
+  let saveButton = null;
 
-  typeSelect.addEventListener("change", () => {
-    decoratorContainer.innerHTML = ""; // Clear old
+  // Define your event handler as a separate function:
+  function onTypeSelectChange() {
+    decoratorContainer.innerHTML = "";
     if (selectedPointsLabel) selectedPointsLabel.remove();
     if (selectedPointsContainer) selectedPointsContainer.remove();
 
     const selected = typeSelect.value;
-    if (!selected) {
-      // No type selected, no decorator dropdown or points container shown
-      return;
-    }
+    if (!selected) return;
 
     let items = [];
-    let selectedType = "";
 
     if (selected === "Symbol") {
       items = getAllSymbolNames();
-      selectedType = "symbol";
-      console.log(`Possible symbol options: ${items}`);
     } else if (selected === "Powierzchnia") {
       items = Object.keys(areaFillStyles || {});
-      selectedType = "areaFill";
     } else if (selected === "Granica") {
       items = Object.keys(borderStyles || {});
-      selectedType = "border";
     }
 
-    const decoratorSelector = createDecoratorSelector(selectedType, items);
+    const selectedType = textToDecorTypeId[selected];
+
+    let prechosenOption;
+    if (layerMetadata?.[selectedType]) {
+      prechosenOption = layerMetadata[selectedType];
+    }
+    else {
+      prechosenOption = "";
+    }
+
+    const decoratorSelector = createDecoratorSelector(selectedType, items, prechosenOption);
     decoratorContainer.appendChild(decoratorSelector);
 
-    // Add label "Wybrane punkty"
-    selectedPointsLabel = document.createElement("label");
-    selectedPointsLabel.textContent = "Wybrane punkty";
-    selectedPointsLabel.style.marginTop = "16px";
-    rightSidebar.appendChild(selectedPointsLabel);
+    // Add listener
+    function handleDecoratorSelected(e) {
+      layerMetadata[selectedType] = e.detail.decoratorName;
 
-    // Add scrollable container below label
-    selectedPointsContainer = document.createElement("div");
-    selectedPointsContainer.id = "selected-points-container";
-    rightSidebar.appendChild(selectedPointsContainer);
+      // Add "Zapisz" button below decorator selector
+      if (!saveButton) {
+        saveButton = document.createElement("button");
+        saveButton.textContent = "Zapisz";
+        saveButton.style.marginTop = "12px";
+        saveButton.style.padding = "10px";
+        saveButton.style.backgroundColor = "#007bff";
+        saveButton.style.color = "white";
+        saveButton.style.border = "none";
+        saveButton.style.cursor = "pointer";
+        saveButton.style.borderRadius = "4px";
+        rightSidebar.appendChild(saveButton);
 
-    decoratorSelector.addEventListener("decoratorSelected", (e) => {
-      console.log("Selected decorator:", e.detail.decoratorName);
-      drawMap();
-      // You can update selectedPointsContainer here if needed
-    });
-  });
+        saveButton.addEventListener("click", () => {
+          const selectedIds = layerControl.getSelectedPointIds();
+          layerMetadata["name"] = nameInput.value;
+          saveEditedLayer(layerMetadata, selectedIds);
+
+          cleanEditingEnv();
+        });
+      }
+
+      if (!selectedPointsLabel) {
+        selectedPointsLabel = document.createElement("label");
+        selectedPointsLabel.textContent = "Wybrane punkty";
+        selectedPointsLabel.style.marginTop = "16px";
+        rightSidebar.appendChild(selectedPointsLabel);
+      }
+
+      if (!selectedPointsContainer) {
+        selectedPointsContainer = document.createElement("div");
+        selectedPointsContainer.id = "selected-points-container";
+        rightSidebar.appendChild(selectedPointsContainer);
+      }
+
+      // Draw the map and add the editing toolkit
+      const layerControl = drawMap(undefined, undefined, preselectedPoints = preselectedPoints);
+    }
+
+    decoratorSelector.addEventListener("decoratorSelected", handleDecoratorSelected);
+
+    // 🩹 Trigger manually if prechosen
+    if (prechosenOption && items.includes(prechosenOption)) {
+      handleDecoratorSelected({
+        detail: {
+          decoratorType: selectedType,
+          decoratorName: prechosenOption
+        }
+      });
+    }
+  }
+
+  // // Add the newly defined layer name to the sidebar
+        // console.log(`Searching element by ID layer-box-${layerMetadata["layer_id"]}`)
+        // const layerBox = document.getElementById(`layer-box-${layerMetadata["layer_id"]}`);
+
+        // // Trim name to 20 digits
+        // let name = nameInput.value.trim();
+        // if (name.length > 20) {
+        //   name = name.slice(0, 20) + "...";
+        // }
+
+        // layerBox.textContent = `${layerMetadata["layer_id"]}: ${name}`;
+        // console.log(`Changed textContent to ${layerMetadata["layer_id"]}: ${name}`);
+
+  typeSelect.addEventListener("change", onTypeSelectChange);
+
+  // Call once on init to set decoratorSelector if there is a preselected type
+  if (typeSelect.value) {
+    onTypeSelectChange();
+  }
+
+  typeSelect.addEventListener("change", onTypeSelectChange);
 
   document.body.appendChild(rightSidebar);
 }
+
 
 ////////////////////////////////////////////////////// Logic for map loading ///////////////////////////////////////////////////////////////
 
@@ -717,7 +955,7 @@ function updateLegend(legendList, mapName, voronoiLayers, map) {
 
 /**************************** Draw Map ****************************/
 
-async function drawMap(mapId = "", metadata) {
+function drawMap(mapId = "", metadata=[], preselectedPoints = []) {
 
   cleanMap();
 
@@ -741,12 +979,18 @@ async function drawMap(mapId = "", metadata) {
 
     // Update the legend to show the decorators and descriptions
     updateLegend(legendList, mapMeta.map_name, voronoiLayers, map);
+    
+    return {"layer": symbolLayer}
   }
   else {
     const features = loadFeatures();
 
     // Add symbols to the map
-    symbolLayer = addEmptyPointsLayer(features, map)
+    const layerControl = addEmptyPointsLayer(features, map, preselectedPoints)
+
+    symbolLayer = layerControl.layer
+
+    return layerControl
   }
 }
 

@@ -460,19 +460,17 @@ export function cleanPointSelect() {
  * @param {L.Map} map - The Leaflet map instance to add the layer to.
  * @returns {L.GeoJSON} - The Leaflet GeoJSON layer added to the map.
  */
-export function addEmptyPointsLayer(features, map) {
+export function addEmptyPointsLayer(features, map, preselectedPoints) {
   const selectedPoints = new Map();    // point_id -> { marker, box, active }
   const tempSelectedPoints = new Set(); // point_ids currently rectangle-selected
   const allMarkers = new Map();         // point_id -> marker
 
-  // Create icon with fill color and optional yellow outline
   function createMarkerIcon(pointId) {
     const isSelected = selectedPoints.has(pointId);
     const isActive = isSelected && selectedPoints.get(pointId).active;
     const isTempSelected = tempSelectedPoints.has(pointId);
 
     const fillColor = isSelected ? (isActive ? "green" : "red") : "grey";
-    // We'll add yellow outline if tempSelectedPoints has it
 
     const div = document.createElement("div");
     div.className = "point-marker";
@@ -500,27 +498,76 @@ export function addEmptyPointsLayer(features, map) {
     });
   }
 
-  // Update marker icon for a pointId
   function updateMarkerIcon(pointId) {
     const marker = allMarkers.get(pointId);
     if (!marker) return;
     marker.setIcon(createMarkerIcon(pointId));
   }
 
-  // Update all markers in tempSelectedPoints (yellow outlines)
   function updateAllTempSelectedIcons() {
     for (const id of tempSelectedPoints) {
       updateMarkerIcon(id);
     }
   }
 
-  // Remove yellow outlines from tempSelectedPoints
   function clearTempSelection() {
     tempSelectedPoints.clear();
-    // Update ALL markers to be sure no yellow outline remains
     for (const id of allMarkers.keys()) {
       updateMarkerIcon(id);
     }
+  }
+
+  function selectPoint(id) {
+    const marker = allMarkers.get(id);
+    if (!marker) return;
+
+    // Avoid duplicate selection
+    if (selectedPoints.has(id)) return;
+
+    const selectedContainer = document.getElementById("selected-points-container");
+    if (!selectedContainer) return;
+
+    const box = document.createElement("div");
+    box.className = "point-box";
+    box.style.display = "flex";
+    box.style.justifyContent = "space-between";
+    box.style.alignItems = "center";
+    box.style.marginBottom = "4px";
+    box.style.border = "1px solid #ccc";
+    box.style.padding = "4px 8px";
+    box.style.borderRadius = "4px";
+
+    const label = document.createElement("span");
+    label.textContent = `Punkt ${id}`;
+    label.style.flex = "1";
+    label.style.cursor = "pointer";
+
+    const removeBtn = document.createElement("span");
+    removeBtn.textContent = "✕";
+    removeBtn.className = "remove-btn";
+    removeBtn.style.cursor = "pointer";
+    removeBtn.style.marginLeft = "8px";
+
+    box.appendChild(label);
+    box.appendChild(removeBtn);
+    selectedContainer.appendChild(box);
+
+    let isActive = false;
+    label.addEventListener("click", () => {
+      isActive = !isActive;
+      selectedPoints.get(id).active = isActive;
+      updateMarkerIcon(id);
+    });
+
+    removeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      box.remove();
+      selectedPoints.delete(id);
+      updateMarkerIcon(id);
+    });
+
+    selectedPoints.set(id, { marker, box, active: false });
+    updateMarkerIcon(id);
   }
 
   const geoLayer = L.geoJSON({ type: "FeatureCollection", features }, {
@@ -535,59 +582,12 @@ export function addEmptyPointsLayer(features, map) {
 
       marker.on("click", () => {
         if (selectedPoints.has(id)) {
-          // Deselect point: remove box, grey marker
           const { box } = selectedPoints.get(id);
           box.remove();
           selectedPoints.delete(id);
           updateMarkerIcon(id);
         } else {
-          // Select point: red fill + add box
-
-          const selectedContainer = document.getElementById("selected-points-container")
-          if (!selectedContainer) return;
-
-          const box = document.createElement("div");
-          box.className = "point-box";
-          box.style.display = "flex";
-          box.style.justifyContent = "space-between";
-          box.style.alignItems = "center";
-          box.style.marginBottom = "4px";
-          box.style.border = "1px solid #ccc";
-          box.style.padding = "4px 8px";
-          box.style.borderRadius = "4px";
-
-          const label = document.createElement("span");
-          label.textContent = `Punkt ${id}`;
-          label.style.flex = "1";
-          label.style.cursor = "pointer";
-
-          const removeBtn = document.createElement("span");
-          removeBtn.textContent = "✕";
-          removeBtn.className = "remove-btn";
-          removeBtn.style.cursor = "pointer";
-          removeBtn.style.marginLeft = "8px";
-
-          box.appendChild(label);
-          box.appendChild(removeBtn);
-          selectedContainer.appendChild(box);
-
-          // Active state toggle on label click
-          let isActive = false;
-          label.addEventListener("click", () => {
-            isActive = !isActive;
-            selectedPoints.get(id).active = isActive;
-            updateMarkerIcon(id);
-          });
-
-          removeBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            box.remove();
-            selectedPoints.delete(id);
-            updateMarkerIcon(id);
-          });
-
-          selectedPoints.set(id, { marker, box, active: false });
-          updateMarkerIcon(id);
+          selectPoint(id);
         }
       });
 
@@ -597,7 +597,6 @@ export function addEmptyPointsLayer(features, map) {
 
   geoLayer.addTo(map);
 
-  // Setup Leaflet.draw rectangle drawing
   const drawControl = new L.Control.Draw({
     draw: {
       polygon: false,
@@ -615,20 +614,16 @@ export function addEmptyPointsLayer(features, map) {
     const layer = e.layer;
     const bounds = layer.getBounds();
 
-    // Add points inside bounds to temp selection
     for (const [id, marker] of allMarkers.entries()) {
       if (bounds.contains(marker.getLatLng())) {
         tempSelectedPoints.add(id);
       }
     }
 
-    // Refresh all tempSelected points icons (show yellow outlines)
     updateAllTempSelectedIcons();
-
     showMultiSelectControls(selectedPoints, tempSelectedPoints);
   });
 
-  // Helper: show buttons for multi-select
   function showMultiSelectControls(selectedPoints, tempSelectedPoints) {
     const sidebar = document.getElementById("right-sidebar");
     if (!sidebar || tempSelectedPoints.size === 0) return;
@@ -645,9 +640,7 @@ export function addEmptyPointsLayer(features, map) {
     addBtn.textContent = "Dodaj wybrane punkty";
     addBtn.onclick = () => {
       for (const id of tempSelectedPoints) {
-        if (!selectedPoints.has(id)) {
-          allMarkers.get(id).fire("click"); // trigger existing logic
-        }
+        selectPoint(id);
       }
       clearTempSelection();
       container.remove();
@@ -658,7 +651,7 @@ export function addEmptyPointsLayer(features, map) {
     removeBtn.onclick = () => {
       for (const id of tempSelectedPoints) {
         if (selectedPoints.has(id)) {
-          const { box, marker } = selectedPoints.get(id);
+          const { box } = selectedPoints.get(id);
           box.remove();
           selectedPoints.delete(id);
           updateMarkerIcon(id);
@@ -682,8 +675,19 @@ export function addEmptyPointsLayer(features, map) {
     sidebar.appendChild(container);
   }
 
-  // Expose the clean function globally if you want to call externally
+  // Select all preselected points (once markers exist)
+  if (Array.isArray(preselectedPoints)) {
+    for (const id of preselectedPoints) {
+      // Delay to next tick to ensure markers are initialized
+      setTimeout(() => selectPoint(id), 0);
+    }
+  }
+
   window.cleanPointSelect = clearTempSelection;
 
-  return geoLayer;
+  return {
+    layer: geoLayer,
+    getSelectedPointIds: () => Array.from(selectedPoints.keys()),
+    getSelectedPointsMap: () => selectedPoints,
+  };
 }
