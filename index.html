@@ -29,6 +29,10 @@
 
       <label for="map-author" id="author-label">Autor:</label>
       <div id="map-author"></div>
+
+      <!-- New Buttons -->
+      <button id="load-map-button">Załaduj mapę</button>
+      <button id="new-map-button">Stwórz nową mapę</button>
     </aside>
 
     <!-- Map container -->
@@ -36,6 +40,30 @@
       <div id="map"></div>
       <div id="legend"></div>
     </main>
+  </div>
+
+  <!-- Modal Popup -->
+  <div id="load-map-modal">
+    <div id="load-map-modal-content">
+      <span id="close-modal">&times;</span>
+      <h3>Załaduj dane mapy</h3>
+
+      <br />
+
+      <label>Definicja stylu mapy w formacie JSON:</label>
+      <input type="file" id="json-file" accept=".json" />
+
+      <br />
+
+      <label>CSV z danymi:</label>
+      <input type="file" id="csv-file" accept=".csv" />
+
+      <br />
+
+      <div style="text-align: right; margin-top: 20px;">
+        <button id="submit-load">Załaduj</button>
+      </div>
+    </div>
   </div>
 
   <!-- Leaflet and other scripts -->
@@ -47,5 +75,18 @@
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
   <script type="module" src="app.js"></script>
+
+  <!-- Modal logic -->
+  <script>
+    const modal = document.getElementById("load-map-modal");
+    const openBtn = document.getElementById("load-map-button");
+    const closeBtn = document.getElementById("close-modal");
+
+    openBtn.onclick = () => modal.style.display = "block";
+    closeBtn.onclick = () => modal.style.display = "none";
+    window.onclick = (e) => {
+      if (e.target === modal) modal.style.display = "none";
+    };
+  </script>
 </body>
 </html>

@@ -23,9 +23,13 @@ legendControl.onAdd = function(map) {
 
 legendControl.addTo(map);
 
+// Load points coordinates and names
+const pointsRawText = await fetch("data/points.csv").then(res => res.text());
+const points = d3.dsvFormat(";").parse(pointsRawText);
+
 // Load data
-const rawText = await fetch("data/data.csv").then(res => res.text());
-const csv = d3.dsvFormat(";").parse(rawText);
+const dataRawText = await fetch("data/data.csv").then(res => res.text());
+const data = d3.dsvFormat(";").parse(dataRawText);
 
 //////////////////////////////////// Define Legend ////////////////////////////////////
 
@@ -187,8 +191,14 @@ async function loadMap(mapId) {
 
   const features = [];
 
-  for (const row of csv) {
-    const [latStr, lonStr] = row.Coordinates.split(",");
+  // Index the data rows from data/data.csv by point_id for fast lookup
+  const dataByPointId = Object.fromEntries(
+    data.map(row => [row.point_id, row])
+  );
+
+  // Process each point
+  for (const point of points) {
+    const [latStr, lonStr] = point.Coordinates.split(",");
     const lat = Number(latStr.trim());
     const lon = Number(lonStr.trim());
 
@@ -196,9 +206,13 @@ async function loadMap(mapId) {
     const activeBorderGroups = [];
     const activeAreaFillGroups = [];
 
+    // Look up corresponding data row
+    const dataRow = dataByPointId[point.point_id];
+    if (!dataRow) continue; // skip if no data
+
     for (const layer of legendList) {
       const colKey = `${mapId}/${layer.layer_id}`;
-      const cellValue = row[colKey];
+      const cellValue = dataRow[colKey];
 
       if (!cellValue || cellValue.trim() === "") continue;
 
@@ -219,10 +233,10 @@ async function loadMap(mapId) {
       type: "Feature",
       geometry: { type: "Point", coordinates: [lon, lat] },
       properties: {
-        id: row.Nr,
-        place_name: row["City Name Today"] && row["City Name Today"].trim() !== "" 
-          ? row["City Name Today"] 
-          : row["Original City Name"],
+        id: point.point_id,
+        place_name: point["City Name Today"] && point["City Name Today"].trim() !== "" 
+          ? point["City Name Today"] 
+          : point["Original City Name"],
         activeSymbols,
         activeBorderGroups,
         activeAreaFillGroups
