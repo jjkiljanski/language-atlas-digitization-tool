@@ -893,6 +893,20 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
           saveEditedLayer(layerMetadata, selectedIds);
 
           cleanEditingEnv();
+
+          const layerBox = document.getElementById(`layer-box-${layerMetadata["layer_id"]}`);
+
+          // Trim name to 20 characters
+          let name = nameInput.value.trim();
+          if (name.length > 20) {
+            name = name.slice(0, 20) + "...";
+          }
+
+          // Find the label <span> inside the layerBox
+          const label = layerBox.querySelector("span"); // the first span is the label
+          if (label) {
+            label.textContent = `${layerMetadata["layer_id"]}: ${name}`;
+          }
         });
       }
 
@@ -925,19 +939,6 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
       });
     }
   }
-
-  // // Add the newly defined layer name to the sidebar
-        // console.log(`Searching element by ID layer-box-${layerMetadata["layer_id"]}`)
-        // const layerBox = document.getElementById(`layer-box-${layerMetadata["layer_id"]}`);
-
-        // // Trim name to 20 digits
-        // let name = nameInput.value.trim();
-        // if (name.length > 20) {
-        //   name = name.slice(0, 20) + "...";
-        // }
-
-        // layerBox.textContent = `${layerMetadata["layer_id"]}: ${name}`;
-        // console.log(`Changed textContent to ${layerMetadata["layer_id"]}: ${name}`);
 
   typeSelect.addEventListener("change", onTypeSelectChange);
 
