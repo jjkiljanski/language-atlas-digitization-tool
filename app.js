@@ -186,17 +186,43 @@ function loadFeatures(mapId = "", legendList = []) {
 
 ////////////////////////////////////////////////////// Logic for sidebar rendering //////////////////////////////////////////////////////////////
 
-function renderSidebar() {
+function renderSidebar(loadedData) {
   const sidebar = document.getElementById("sidebar");
   sidebar.innerHTML = ""; // Clear existing content
 
+  // Remove modal if exists
+  const existingModal = document.getElementById("load-map-modal");
+  if (existingModal) {
+    existingModal.remove();
+  }
+
   if (editing_mode) {
-    // Master data structure for CSV export
-    const layerCsvData = points.map(p => ({
-      point_id: p.point_id  // Copy just the point_id from the original points
-    }));
-    // Master metadata dict
-    let mapMetadata = {"layers": []}
+
+    let layerCsvData; // Master data structure for CSV export
+    let mapMetadata; // Master metadata dict
+
+    if (loadedData) {
+      // Deep copy and clean up column names by stripping prefix
+      layerCsvData = loadedData["csv"].map(row => {
+        const cleanedRow = { point_id: row.point_id };
+        for (const key in row) {
+          if (key !== "point_id" && key.includes("/")) {
+            const [, layerId] = key.split("/");
+            cleanedRow[layerId] = row[key] === "0" ? 0 : row[key] === "1" ? 1 : row[key];
+          }
+        }
+        return cleanedRow;
+      });
+
+      mapMetadata = loadedData["metadata"];
+    } else {
+      layerCsvData = points.map(p => ({
+        point_id: p.point_id  // Copy just the point_id from the original points
+      }));
+      mapMetadata = { "layers": [] };
+    }
+
+    console.log("layerCsvData", layerCsvData);
 
     function saveEditedLayer(layerMetadata, selectedIds) {
       // Remove any existing layer with the same layer_id
@@ -258,9 +284,16 @@ function renderSidebar() {
     idInput.placeholder = "np. XV.1";
     idInput.style.marginBottom = "8px";
     idInput.style.width = "100%";
+
+    // Check if "map_id" exists in mapMetadata
+    if (mapMetadata && mapMetadata.hasOwnProperty("map_id")) {
+      idInput.value = mapMetadata.map_id;   // Set input value to map_id
+      delete mapMetadata.map_id;             // Remove map_id from mapMetadata
+    }
+
     sidebar.appendChild(idInput);
 
-    // Nazwa mapy (Map name) text input box
+    // Nazwa mapy (Map name) label and input
     const nameLabel = document.createElement("label");
     nameLabel.textContent = "Nazwa mapy";
     sidebar.appendChild(nameLabel);
@@ -271,9 +304,15 @@ function renderSidebar() {
     nameInput.placeholder = "np. Granice dialektów na obszarze AJK";
     nameInput.style.marginBottom = "8px";
     nameInput.style.width = "100%";
+
+    // Check and set map_name
+    if (mapMetadata && mapMetadata.hasOwnProperty("map_name")) {
+      nameInput.value = mapMetadata.map_name;
+      delete mapMetadata.map_name;
+    }
     sidebar.appendChild(nameInput);
 
-    // Autor (Author) text input box
+    // Autor (Author) label and input
     const authorLabel = document.createElement("label");
     authorLabel.textContent = "Autor";
     sidebar.appendChild(authorLabel);
@@ -284,6 +323,12 @@ function renderSidebar() {
     authorInput.placeholder = "np. Jan Kowalski";
     authorInput.style.marginBottom = "12px";
     authorInput.style.width = "100%";
+
+    // Check and set author
+    if (mapMetadata && mapMetadata.hasOwnProperty("author")) {
+      authorInput.value = mapMetadata.author;
+      delete mapMetadata.author;
+    }
     sidebar.appendChild(authorInput);
 
     // HEADING + ADD BUTTON
@@ -317,11 +362,14 @@ function renderSidebar() {
       addBtn.style.backgroundColor = "#eee";
     };
 
-    addBtn.onclick = () => {
-      const layerList = document.getElementById("layer-list");
+    function renderLayerBox(layerMetadata) {
+      const layerId = layerMetadata.layer_id;
+      if (layerId >= smallestFreeLayerId) {
+        smallestFreeLayerId = layerId + 1;
+      }
 
-      const layerId = smallestFreeLayerId++; // assign and increment
-      const layerName = `Warstwa ${layerId}`;
+      const layerList = document.getElementById("layer-list");
+      const layerName = layerMetadata.name || `Warstwa ${layerId}`;
 
       const box = document.createElement("div");
       box.className = "layer-box";
@@ -340,7 +388,6 @@ function renderSidebar() {
       label.textContent = layerName;
       label.style.flex = "1";
 
-      // Pen icon (Edit)
       const editIcon = document.createElement("span");
       editIcon.innerHTML = "✎";
       editIcon.title = "Edytuj";
@@ -348,20 +395,13 @@ function renderSidebar() {
       editIcon.style.marginLeft = "8px";
 
       editIcon.onclick = () => {
-        let layerMetadata = mapMetadata.layers.find(layer => layer.layer_id === layerId);
-        if (!layerMetadata) {
-          layerMetadata = {"layer_id": layerId};
-        }
+        cleanEditingEnv();
         const preselectedPoints = getSelectedPointIds(layerId);
         layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints);
-        // Optional: visually mark this box as active
-        document.querySelectorAll(".layer-box").forEach(b => {
-          b.style.backgroundColor = ""; // reset
-        });
-        box.style.backgroundColor = "#f8d7da"; // mark as active
+        document.querySelectorAll(".layer-box").forEach(b => b.style.backgroundColor = "");
+        box.style.backgroundColor = "#f8d7da";
       };
 
-      // X icon (Delete)
       const deleteIcon = document.createElement("span");
       deleteIcon.innerHTML = "✕";
       deleteIcon.title = "Usuń";
@@ -383,6 +423,12 @@ function renderSidebar() {
       box.appendChild(controls);
 
       layerList.appendChild(box);
+    }
+
+    addBtn.onclick = () => {
+      const layerId = smallestFreeLayerId++; // assign and increment
+      const newLayerMetadata = { layer_id: layerId, name: `Warstwa ${layerId}` };
+      renderLayerBox(newLayerMetadata);
     };
 
     headingWrapper.appendChild(heading);
@@ -393,6 +439,13 @@ function renderSidebar() {
     const layerList = document.createElement("ul");
     layerList.id = "layer-list"; // Empty initially
     sidebar.appendChild(layerList);
+
+    // Render existing layers from loaded metadata
+    if (mapMetadata.layers && Array.isArray(mapMetadata.layers)) {
+      for (const layer of mapMetadata.layers) {
+        renderLayerBox(layer);
+      }
+    }
 
     // DOWNLOAD BUTTON
     const downloadBtn = document.createElement("button");
@@ -486,10 +539,40 @@ function renderSidebar() {
     sidebar.appendChild(newMapBtn);
 
     loadMapBtn.onclick = () => {
+      // Reset file inputs here:
+      document.getElementById("json-file").value = "";
+      document.getElementById("csv-file").value = "";
       document.getElementById("load-map-modal").style.display = "block";
     };
 
-    // CREATE MODAL STRUCTURE after loadMapBtn click
+    // 🔧 REUSABLE LOADING FUNCTION
+    async function loadMapDataFromFiles(jsonFile, csvFile) {
+      if (!jsonFile || !csvFile) {
+        alert("Proszę wybrać pliki JSON i CSV.");
+        return;
+      }
+
+      try {
+        // Read JSON
+        const jsonText = await jsonFile.text();
+        const newMetadata = JSON.parse(jsonText);
+
+        // Read CSV (assume ; separator)
+        const csvText = await csvFile.text();
+        const newDataRows = d3.dsvFormat(";").parse(csvText);
+
+        // Close modal
+        document.getElementById("load-map-modal").style.display = "none";
+
+        return {"csv": newDataRows, "metadata": newMetadata};
+
+      } catch (err) {
+        alert("Błąd podczas ładowania danych: " + err.message);
+        console.error(err);
+      }
+    }
+
+    // ✅ CREATE MODAL STRUCTURE
     const modalOverlay = document.createElement("div");
     modalOverlay.id = "load-map-modal";
 
@@ -528,14 +611,41 @@ function renderSidebar() {
     modalContent.appendChild(csvLabel);
     modalContent.appendChild(csvInput);
 
-    // Submit button
+    // Button container with space-between layout
     const submitWrapper = document.createElement("div");
     submitWrapper.className = "submit-wrapper";
+    submitWrapper.style.display = "flex";
+    submitWrapper.style.justifyContent = "space-between";
+    submitWrapper.style.alignItems = "center";
+    submitWrapper.style.marginTop = "20px";
 
+    // 🟢 Left container for "Edytuj mapę"
+    const leftWrapper = document.createElement("div");
+
+    // 🔵 Right container for "Wyświetl mapę"
+    const rightWrapper = document.createElement("div");
+
+    // 🟢 Edytuj mapę button
+    const editBtn = document.createElement("button");
+    editBtn.textContent = "Edytuj mapę  ";
+    editBtn.id = "edit-map-btn";
+    editBtn.style.padding = "6px 12px";
+    editBtn.style.fontSize = "14px";
+    editBtn.style.cursor = "pointer";
+    leftWrapper.appendChild(editBtn);
+
+    // 🔵 Wyświetl mapę button
     const submitBtn = document.createElement("button");
     submitBtn.id = "submit-load";
-    submitBtn.textContent = "Załaduj";
-    submitWrapper.appendChild(submitBtn);
+    submitBtn.textContent = "Wyświetl mapę";
+    submitBtn.style.padding = "6px 12px";
+    submitBtn.style.fontSize = "14px";
+    submitBtn.style.cursor = "pointer";
+    rightWrapper.appendChild(submitBtn);
+
+    // Assemble
+    submitWrapper.appendChild(leftWrapper);
+    submitWrapper.appendChild(rightWrapper);
 
     modalContent.appendChild(submitWrapper);
 
@@ -543,7 +653,7 @@ function renderSidebar() {
     modalOverlay.appendChild(modalContent);
     document.body.appendChild(modalOverlay);
 
-    // Open/close behavior
+    // Modal open/close behavior
     loadMapBtn.onclick = () => {
       modalOverlay.style.display = "flex";
     };
@@ -554,54 +664,48 @@ function renderSidebar() {
       }
     });
 
-    document.getElementById("submit-load").onclick = async () => {
+    // 📦 Use shared logic in Załaduj
+    submitBtn.onclick = async () => {
       const jsonFile = document.getElementById("json-file").files[0];
       const csvFile = document.getElementById("csv-file").files[0];
+      loadedData = await loadMapDataFromFiles(jsonFile, csvFile);
 
-      if (!jsonFile || !csvFile) {
-        alert("Proszę wybrać pliki JSON i CSV.");
-        return;
+      // Append to metadata
+      metadata.push(loadedData["metadata"]);
+
+      // Create map for fast lookup: point_id → row
+      const newDataMap = new Map();
+      for (const row of loadedData["csv"]) {
+        newDataMap.set(row.point_id, row);
       }
 
-      try {
-        // Read JSON
-        const jsonText = await jsonFile.text();
-        const newMetadata = JSON.parse(jsonText);
-
-        // Append to metadata
-        metadata.push(newMetadata);
-
-        // Read CSV (assume ; separator)
-        const csvText = await csvFile.text();
-        const newDataRows = d3.dsvFormat(";").parse(csvText);
-
-        // Create map for fast lookup: point_id → row
-        const newDataMap = new Map();
-        for (const row of newDataRows) {
-          newDataMap.set(row.point_id, row);
-        }
-
-        // Extend existing data rows
-        for (const row of data) {
-          const newValues = newDataMap.get(row.point_id);
-          if (newValues) {
-            for (const [key, value] of Object.entries(newValues)) {
-              if (key !== "point_id") {
-                row[key] = value;
-              }
+      // Extend existing data rows
+      for (const row of data) {
+        const newValues = newDataMap.get(row.point_id);
+        if (newValues) {
+          for (const [key, value] of Object.entries(newValues)) {
+            if (key !== "point_id") {
+              row[key] = value;
             }
           }
         }
-
-        // Close modal
-        document.getElementById("load-map-modal").style.display = "none";
-
-        // Reload the sidebar
-        renderSidebar();
-      } catch (err) {
-        alert("Błąd podczas ładowania danych: " + err.message);
-        console.error(err);
       }
+
+      // Reload the sidebar
+      renderSidebar();
+    };
+
+    // ✏️ Use same logic for "Edytuj mapę"
+    editBtn.onclick = async () => {
+      const jsonFile = document.getElementById("json-file").files[0];
+      const csvFile = document.getElementById("csv-file").files[0];
+
+      const loadedData = await loadMapDataFromFiles(jsonFile, csvFile); // ✅ store result
+
+      if (!loadedData) return; // if loading failed
+
+      editing_mode = true;
+      renderSidebar(loadedData); // ✅ now passes real data
     };
 
     newMapBtn.onclick = () => {
