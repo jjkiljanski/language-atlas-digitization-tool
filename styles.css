@@ -77,37 +77,56 @@ body, select, label, h1, h2, h3, div {
   box-sizing: border-box;
 }
 
-/* Modal styles */
+/********************************* Modal popup *****************************/
+
+/* Modal overlay */
 #load-map-modal {
-  display: none;
+  display: none; /* Hidden by default */
   position: fixed;
-  z-index: 1000;
-  left: 0;
   top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
 }
 
+/* Modal content */
 #load-map-modal-content {
-  background-color: #fff;
-  margin: 10% auto;
-  padding: 20px;
+  background-color: white;
+  padding: 24px;
   border-radius: 8px;
-  width: 400px;
+  max-width: 400px;
+  margin: auto;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
-#load-map-modal input[type="file"] {
-  margin-bottom: 15px;
-}
-
+/* Close button */
 #close-modal {
-  float: right;
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 20px;
   cursor: pointer;
-  font-size: 18px;
 }
 
+/* Input section */
+#load-map-modal-content label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+/* Submit button container */
+#load-map-modal-content .submit-wrapper {
+  text-align: right;
+  margin-top: 20px;
+}
+
+/* Sidebar button */
 #sidebar button {
   display: block;
   margin-top: 10px;

@@ -610,6 +610,9 @@ export function addEmptyPointsLayer(features, map, preselectedPoints) {
   });
   map.addControl(drawControl);
 
+  // Save reference for next calls
+  map._drawControl = drawControl;
+
   map.on(L.Draw.Event.CREATED, function (e) {
     const layer = e.layer;
     const bounds = layer.getBounds();

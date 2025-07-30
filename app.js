@@ -103,6 +103,11 @@ function cleanEditingEnv() {
     b.style.backgroundColor = "";
   });
   map.removeLayer(symbolLayer); // remove the points from the map
+
+  // Remove existing drawControl if it exists
+  if (map._drawControl) {
+    map.removeControl(map._drawControl);
+  }
 }
 
 /**************************** Function for GeoJSON creation for plotting ****************************/
@@ -141,7 +146,13 @@ function loadFeatures(mapId = "", legendList = []) {
       const colKey = `${mapId}/${layer.layer_id}`;
       const cellValue = dataRow[colKey];
 
-      if (!cellValue || cellValue.trim() === "") continue;
+      if (
+        cellValue === undefined || 
+        cellValue === null || 
+        cellValue === "0" || 
+        cellValue === 0 || 
+        (typeof cellValue === "string" && cellValue.trim() === "")
+      ) continue;
 
       if (layer.symbol) {
         activeSymbols.push({ name: layer.name, symbol: layer.symbol });
@@ -188,13 +199,18 @@ function renderSidebar() {
     let mapMetadata = {"layers": []}
 
     function saveEditedLayer(layerMetadata, selectedIds) {
-      // Add layer to all layers' metadata
-      mapMetadata["layers"].push(layerMetadata)
+      // Remove any existing layer with the same layer_id
+      mapMetadata["layers"] = mapMetadata["layers"].filter(
+        layer => layer.layer_id !== layerMetadata.layer_id
+      );
+
+      // Add the new (edited) layer metadata
+      mapMetadata["layers"].push(layerMetadata);
 
       // Fill this column: 1 if selected, 0 if not
-        for (const row of layerCsvData) {
-          row[layerMetadata["layer_id"]] = selectedIds.includes(row.point_id) ? 1 : 0;
-        }
+      for (const row of layerCsvData) {
+        row[layerMetadata["layer_id"]] = selectedIds.includes(row.point_id) ? 1 : 0;
+      }
     }
 
     function getSelectedPointIds(selectedColumn) {
@@ -381,6 +397,9 @@ function renderSidebar() {
     // DOWNLOAD BUTTON
     const downloadBtn = document.createElement("button");
     downloadBtn.textContent = "Pobierz gotową mapę";
+    downloadBtn.style.backgroundColor = "#007bff";
+    downloadBtn.style.color = "white";
+    downloadBtn.style.border = "none";
     downloadBtn.style.marginTop = "auto";
     downloadBtn.id = "download-map-button";
     sidebar.appendChild(downloadBtn);
@@ -470,6 +489,121 @@ function renderSidebar() {
       document.getElementById("load-map-modal").style.display = "block";
     };
 
+    // CREATE MODAL STRUCTURE after loadMapBtn click
+    const modalOverlay = document.createElement("div");
+    modalOverlay.id = "load-map-modal";
+
+    // Modal content container
+    const modalContent = document.createElement("div");
+    modalContent.id = "load-map-modal-content";
+
+    // Close button
+    const closeBtn = document.createElement("span");
+    closeBtn.id = "close-modal";
+    closeBtn.innerHTML = "&times;";
+    modalContent.appendChild(closeBtn);
+
+    // Title
+    const title = document.createElement("h3");
+    title.textContent = "Załaduj dane mapy";
+    modalContent.appendChild(title);
+
+    // JSON input
+    const jsonLabel = document.createElement("label");
+    jsonLabel.textContent = "Definicja stylu mapy w formacie JSON:";
+    const jsonInput = document.createElement("input");
+    jsonInput.type = "file";
+    jsonInput.id = "json-file";
+    jsonInput.accept = ".json";
+    modalContent.appendChild(jsonLabel);
+    modalContent.appendChild(jsonInput);
+
+    // CSV input
+    const csvLabel = document.createElement("label");
+    csvLabel.textContent = "CSV z danymi:";
+    const csvInput = document.createElement("input");
+    csvInput.type = "file";
+    csvInput.id = "csv-file";
+    csvInput.accept = ".csv";
+    modalContent.appendChild(csvLabel);
+    modalContent.appendChild(csvInput);
+
+    // Submit button
+    const submitWrapper = document.createElement("div");
+    submitWrapper.className = "submit-wrapper";
+
+    const submitBtn = document.createElement("button");
+    submitBtn.id = "submit-load";
+    submitBtn.textContent = "Załaduj";
+    submitWrapper.appendChild(submitBtn);
+
+    modalContent.appendChild(submitWrapper);
+
+    // Assemble and append
+    modalOverlay.appendChild(modalContent);
+    document.body.appendChild(modalOverlay);
+
+    // Open/close behavior
+    loadMapBtn.onclick = () => {
+      modalOverlay.style.display = "flex";
+    };
+
+    document.addEventListener("click", (e) => {
+      if (e.target.id === "close-modal" || e.target.id === "load-map-modal") {
+        modalOverlay.style.display = "none";
+      }
+    });
+
+    document.getElementById("submit-load").onclick = async () => {
+      const jsonFile = document.getElementById("json-file").files[0];
+      const csvFile = document.getElementById("csv-file").files[0];
+
+      if (!jsonFile || !csvFile) {
+        alert("Proszę wybrać pliki JSON i CSV.");
+        return;
+      }
+
+      try {
+        // Read JSON
+        const jsonText = await jsonFile.text();
+        const newMetadata = JSON.parse(jsonText);
+
+        // Append to metadata
+        metadata.push(newMetadata);
+
+        // Read CSV (assume ; separator)
+        const csvText = await csvFile.text();
+        const newDataRows = d3.dsvFormat(";").parse(csvText);
+
+        // Create map for fast lookup: point_id → row
+        const newDataMap = new Map();
+        for (const row of newDataRows) {
+          newDataMap.set(row.point_id, row);
+        }
+
+        // Extend existing data rows
+        for (const row of data) {
+          const newValues = newDataMap.get(row.point_id);
+          if (newValues) {
+            for (const [key, value] of Object.entries(newValues)) {
+              if (key !== "point_id") {
+                row[key] = value;
+              }
+            }
+          }
+        }
+
+        // Close modal
+        document.getElementById("load-map-modal").style.display = "none";
+
+        // Reload the sidebar
+        renderSidebar();
+      } catch (err) {
+        alert("Błąd podczas ładowania danych: " + err.message);
+        console.error(err);
+      }
+    };
+
     newMapBtn.onclick = () => {
       editing_mode = true;
       renderSidebar();
@@ -492,7 +626,7 @@ function renderSidebar() {
           authorBox.textContent = selectedMeta.author || "";
         }
 
-        drawMap(selectedId=selectedId, metadata=metadata, undefined);
+        drawMap(selectedId, metadata, undefined);
       });
 
       if (metadata.length > 0) {
@@ -683,12 +817,12 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
 
   const textToDecorTypeId = {
     "Symbol": "symbol",
-    "Powierzchnia": "areaFill",
+    "Powierzchnia": "area_fill",
     "Granica": "border"
   };
 
   // Check if the decorator type value was already passed in the metadata. If yes, use it.
-  const keys = { symbol: "Symbol", areaFill: "Powierzchnia", border: "Granica" };
+  const keys = { symbol: "Symbol", area_fill: "Powierzchnia", border: "Granica" };
   const layerKeys = Object.keys(keys);
   const preselectedKey = layerKeys.find(key => layerMetadata?.hasOwnProperty(key));
   typeSelect.value = preselectedKey ? keys[preselectedKey] : "";
@@ -877,7 +1011,7 @@ function createLegendIcon(decorator_type, decorator_name, asHTML = false) {
       }
     }
 
-  } else if (decorator_type === "areaFill") {
+  } else if (decorator_type === "area_fill") {
     const fillConfig = areaFillStyles[decorator_name];
     if (fillConfig?.legendStyle) {
       const style = fillConfig.legendStyle;
@@ -922,7 +1056,7 @@ function updateLegend(legendList, mapName, voronoiLayers, map) {
     } else if (entry.border) {
       symbolEl = createLegendIcon("border", entry.border);
     } else if (entry.area_fill) {
-      symbolEl = createLegendIcon("areaFill", entry.area_fill);
+      symbolEl = createLegendIcon("area_fill", entry.area_fill);
     }
 
     if (symbolEl) item.appendChild(symbolEl);
