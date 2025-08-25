@@ -19,7 +19,7 @@ Atlasy obejmujące terytorium Polski to np. Atlas Gwar Polskich, Mały Atlas Gwa
 
 Powyższe atlasy obejmują tysiące map językowych bardzo wysokiej jakości. Liczba wszystkich punktów na mapach sięga być może nawet miliona. Te dane nie są obecnie dostępne do bezpośredniego wykorzystania do badań ilościowych. Dzięki digitalizacji, dane z atlasów mogą być łatwo udostępnione w Internecie oraz wykorzystane do ilościowych analiz (geo-)lingwistycznych. Możliwe będzie także powiązanie geograficzne danych lingwistycznych z innymi bazami danych na temat polskiej geografii społecznej, ekonomicznej i geografii historycznej.
 
-### Na czym polega digitalizacja? Opis dla słabo programujących.
+### Na czym polega digitalizacja?
 Zwykle atlasy językowe wykorzystują jeden zbiór miejscowości, który pojawia się na wszystkich mapach. Każda mapa podaje jedną albo więcej cech językowych dla tego samego zbioru punktów. Digitalizacja atlasu przebiega w dwóch etapach:
 
 Etap 1: Przed rozpocząciem digitalizacji konkretnych map należy przygotować środowisko do digitalizacji (np. oznaczyć na mapach wszystkie punkty badań itd.). Etap przygotowania do digitalizacji nowego atlasu może trwać około tygodnia.
