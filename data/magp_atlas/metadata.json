@@ -1,0 +1,40 @@
+[
+    {
+        "map_id": "I.1",
+        "map_name": "Mapa Przykładowa 1",
+        "author": "J. Kiljański",
+        "description": "",
+        "layers": [
+            {
+                "layer_id": "0",
+                "name": "fonetyka: wariant 1",
+                "symbol": "vertical_rectangle_filled"
+            },
+            {
+                "layer_id": "1",
+                "name": "fonetyka: wariant 2",
+                "symbol": "vertical_rectangle_empty"
+            },
+            {
+                "layer_id": "2",
+                "name": "leksyka: wariant 1",
+                "area_fill": "vertical_stripes"
+            },
+            {
+                "layer_id": "3",
+                "name": "leksyka: wariant 2",
+                "area_fill": "horizontal_stripes"
+            },
+            {
+                "layer_id": "4",
+                "name": "składnia: wariant 1",
+                "border": "solid_line"
+            },
+            {
+                "layer_id": "9",
+                "name": "składnia: wariant 2",
+                "area_fill": "dots"
+            }
+        ]
+    }
+]

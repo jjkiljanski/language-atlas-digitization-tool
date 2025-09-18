@@ -57,8 +57,8 @@ body, select, label, h1, h2, h3, div {
   display: block;
 }
 
-/* Dropdown style */
-#map-select {
+/* Style of sidebar selectbars */
+.select-sidebar {
   width: 100%;
   padding: 6px;
   font-size: 14px;

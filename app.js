@@ -1,13 +1,29 @@
+import { loadAtlas, loadPointCoordsWithData, saveEditedLayer, initMapMetadata, createEmptyCsvData, loadExternalMapFiles} from './src/io.js';
+import { cleanMap, cleanEditingEnv, resetEditedMapData, cleanLayerData, removeLayerFromEditedMap } from './src/cleaning.js';
 import { preloadAllSymbols, getSymbol, getAllSymbolNames } from './src/symbolLoader.js';
 import { addSymbolLayerToMap, drawVoronoiLayers, addEmptyPointsLayer } from './src/drawingUtils.js';
 import { borderStyles, areaFillStyles } from './src/styleConfig.js';
+import { createInput, createButton, createLayerBox, createFileInput, createModalButtons } from '/src/elementDefinitions.js'
 
 
 ////////////////////////////////////////////// Initial load of all data and layout setup //////////////////////////////////////////////////
 
-let map;
-let metadata;
-let editing_mode = false;
+// Encapsulate all globals in a single object
+window.AppState = {
+  selectedAtlas: null,               // str: which atlas is currently selected
+  map: null,                         // Leaflet map object
+  data: null,                         // d3 parsed CSV data: main dataset (array of objects)
+  points: null,                       // d3 parsed CSV data: points dataset (array of objects)
+  metadata: null,                     // JSON object: metadata of the atlas
+  editing_mode: false,                // bool: whether editing mode is active
+  editedMapMetadata: null,            // object: stores edited metadata temporarily
+  editedMapAllLayersCsvData: null,    // object/array: stores CSV data of all layers while editing
+  clippingGeometry: null,             // GeoJSON Feature: the main clipping geometry of the map
+  clippingGeometryLayer: null,        // Leaflet layer: the layer added to the map for clippingGeometry
+  boundingBox: null,                  // array [minX, minY, maxX, maxY]: bounding box of clippingGeometry
+  symbolLayer: null,                  // Leaflet layer: layer holding point symbols on the map
+  voronoiLayers: null                 // object: stores Voronoi layers, each with possible sublayers (borders, areaFills)
+};
 
 function showWelcomePopup() {
   const modalOverlay = document.createElement("div");
@@ -50,739 +66,310 @@ function showWelcomePopup() {
 }
 
 async function init() {
-  
   showWelcomePopup();
-
   await preloadAllSymbols();
+
   /**************************** Define map layer ****************************/
-  map = L.map("map").setView([54.0, 18.0], 8.2);
+  window.AppState.map = L.map("map").setView([54.0, 18.0], 8.2);
 
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
     subdomains: "abcd",
     maxZoom: 19
-  }).addTo(map);
-
-  /*********************** Load map boundaries from GeoJSON ***********************/
-  let clippingGeometry;
-
-  try {
-    const geojson = await fetch('data/map_boundaries.geojson').then(res => res.json());
-    clippingGeometry = geojson.features[0];
-
-    L.geoJSON(clippingGeometry, {
-      style: {
-        color: "green",
-        weight: 2,
-        fill: false
-      }
-    }).addTo(map);
-  } catch (err) {
-    console.error("Failed to load map boundaries:", err);
-  }
-
-  /**************************** Load Atlas data ****************************/
-  const [pointsRawText, dataRawText, metadataRaw] = await Promise.all([
-    fetch("data/points.csv").then(res => res.text()),
-    fetch("data/data.csv").then(res => res.text()),
-    fetch(`data/metadata.json?nocache=${Date.now()}`).then(res => res.json())
-  ]);
-
-  const points = d3.dsvFormat(";").parse(pointsRawText);
-  const data = d3.dsvFormat(";").parse(dataRawText);
-  metadata = metadataRaw;
-
-  // Make points and data available globally if needed
-  window.clippingGeometry = clippingGeometry;
-  window.points = points;
-  window.data = data;
+  }).addTo(window.AppState.map);
 
   /**************************** Add Legend Box ****************************/
   const legendControl = L.control({ position: "topright" });
-
   legendControl.onAdd = function (map) {
     const div = L.DomUtil.create("div", "legend-container");
     div.id = "legend";
     return div;
   };
+  legendControl.addTo(window.AppState.map);
 
-  legendControl.addTo(map);
+  /**************************** Load Atlas ****************************/
+  window.AppState.selectedAtlas = "kashubian_atlas";
+
+  // define data, points, metadata, clippingGeometry, clipppingGeometryLayer,
+  // and boundingBox attributes of window.AppState with loadAtlas().
+  await loadAtlas();
 
   /**************************** Render UI ****************************/
   renderSidebar();
 }
 
-/**************************** Function for map cleaning ****************************/
-function cleanMap() {
+///////////// Data processing functions /////////////
 
-  // Clean Legend
-  const container = document.querySelector('.legend-container');
-  container.innerHTML = "";
-
-  // Clean Map
-  if (symbolLayer) map.removeLayer(symbolLayer);
-  if (voronoiLayers) {
-    for (const layerId in voronoiLayers) {
-      const layerGroup = voronoiLayers[layerId];
-
-      // Remove border layers if present
-      if (layerGroup.borders) {
-        layerGroup.borders.forEach(layer => map.removeLayer(layer));
-      }
-
-      // Remove area fill layers if present
-      if (layerGroup.areaFills) {
-        layerGroup.areaFills.forEach(layer => map.removeLayer(layer));
-      }
-    }
-  }
-}
-
-// Function for cleaning up the editing environment
-function cleanEditingEnv() {
-  document.getElementById("right-sidebar")?.remove(); // remove the right sidebar
-  document.querySelectorAll(".layer-box").forEach(b => { // color the background of all the layers to neutral
-    b.style.backgroundColor = "";
-  });
-  map.removeLayer(symbolLayer); // remove the points from the map
-
-  // Remove existing drawControl if it exists
-  if (map._drawControl) {
-    map.removeControl(map._drawControl);
-  }
-}
-
-/**************************** Function for GeoJSON creation for plotting ****************************/
-
-/**
- * Generates a GeoJSON-like array of point features for map plotting.
- * Each feature includes location, place name, and styling info (symbols, borders, fills)
- * based on the provided legend list and matched data.
- *
- * @param {Array} legendList - Optional array of layer definitions with styling (symbol, border, area_fill).
- * @returns {Array} Array of GeoJSON-style Feature objects.
- */
-function loadFeatures(mapId = "", legendList = []) {
-  const features = [];
-
-  // Index the data rows from data/data.csv by point_id for fast lookup
-  const dataByPointId = Object.fromEntries(
-    data.map(row => [row.point_id, row])
-  );
-
-  // Process each point
-  for (const point of points) {
-    const [latStr, lonStr] = point.Coordinates.split(",");
-    const lat = Number(latStr.trim());
-    const lon = Number(lonStr.trim());
-
-    const activeSymbols = [];
-    const activeBorderGroups = [];
-    const activeAreaFillGroups = [];
-
-    // Look up corresponding data row
-    const dataRow = dataByPointId[point.point_id];
-    if (!dataRow) continue; // skip if no data
-
-    for (const layer of legendList) {
-      const colKey = `${mapId}/${layer.layer_id}`;
-      const cellValue = dataRow[colKey];
-
-      if (
-        cellValue === undefined || 
-        cellValue === null || 
-        cellValue === "0" || 
-        cellValue === 0 || 
-        (typeof cellValue === "string" && cellValue.trim() === "")
-      ) continue;
-
-      if (layer.symbol) {
-        activeSymbols.push({ name: layer.name, symbol: layer.symbol });
-      }
-
-      if (layer.border) {
-        activeBorderGroups.push(layer.layer_id);
-      }
-
-      if (layer.area_fill) {
-        activeAreaFillGroups.push(layer.layer_id);
-      }
-    }
-
-    features.push({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [lon, lat] },
-      properties: {
-        id: point.point_id,
-        place_name: point["City Name Today"] && point["City Name Today"].trim() !== "" 
-          ? point["City Name Today"] 
-          : point["Original City Name"],
-        activeSymbols,
-        activeBorderGroups,
-        activeAreaFillGroups
-      }
-    });
-  }
-  return features;
+function getSelectedPointIds(allLayersCsvData, selectedColumn) {
+  return allLayersCsvData.filter(row => row[selectedColumn] === 1).map(row => row.point_id);
 }
 
 ////////////////////////////////////////////////////// Logic for sidebar rendering //////////////////////////////////////////////////////////////
 
 function renderSidebar(loadedData) {
   const sidebar = document.getElementById("sidebar");
-  sidebar.innerHTML = ""; // Clear existing content
+  sidebar.innerHTML = ""; 
 
-  // Remove modal if exists
-  const existingModal = document.getElementById("load-map-modal");
-  if (existingModal) {
-    existingModal.remove();
+  if (window.AppState.editing_mode) {
+    window.AppState.editedMapAllLayersCsvData = loadedData ? cleanLayerData(loadedData) : window.AppState.points.map(p => ({ point_id: p.point_id }));
+    window.AppState.editedMapMetadata = initMapMetadata(loadedData);
+
+    renderEditingSidebar(sidebar);
+
+  } else {
+    renderViewingSidebar(sidebar);
+  }
+}
+
+// =========================
+// EDITING MODE SIDEBAR
+// =========================
+function renderEditingSidebar(sidebar) {
+
+  console.log("window.AppState.editedMapAllLayersCsvData: ", window.AppState.editedMapAllLayersCsvData);
+  console.log("window.AppState.editedMapMetadata: ", window.AppState.editedMapMetadata);
+  // Remove any existing right sidebar
+  document.getElementById("right-sidebar")?.remove();
+
+  let smallestFreeLayerId = 0;
+
+  // --- BACK BUTTON ---
+  const backBtn = createButton("← Powrót", () => {
+    window.AppState.editing_mode = false;
+    resetEditedMapData();
+    renderSidebar(); // Re-render normal view
+    document.getElementById("right-sidebar")?.remove();
+  }, { marginBottom: "10px" });
+  backBtn.id = "back-button";
+  sidebar.appendChild(backBtn);
+
+  // --- MAP METADATA INPUTS ---
+  const { label: idLabel, input: idInput } = createInput("ID mapy", "map-id-input", "np. XV.1");
+  if (window.AppState.editedMapMetadata.map_id) { idInput.value = window.AppState.editedMapMetadata.map_id; delete window.AppState.editedMapMetadata.map_id; }
+  sidebar.appendChild(idLabel);
+  sidebar.appendChild(idInput);
+
+  const { label: nameLabel, input: nameInput } = createInput("Nazwa mapy", "map-name-input", "np. Granice dialektów na obszarze AJK");
+  if (window.AppState.editedMapMetadata.map_name) { nameInput.value = window.AppState.editedMapMetadata.map_name; delete window.AppState.editedMapMetadata.map_name; }
+  sidebar.appendChild(nameLabel);
+  sidebar.appendChild(nameInput);
+
+  const { label: authorLabel, input: authorInput } = createInput("Autor", "map-author-input", "np. Jan Kowalski");
+  if (window.AppState.editedMapMetadata.author) { authorInput.value = window.AppState.editedMapMetadata.author; delete window.AppState.editedMapMetadata.author; }
+  sidebar.appendChild(authorLabel);
+  sidebar.appendChild(authorInput);
+
+  // --- EXISTING LAYERS HEADING + ADD BUTTON ---
+  const headingWrapper = document.createElement("div");
+  headingWrapper.style.display = "flex";
+  headingWrapper.style.justifyContent = "space-between";
+  headingWrapper.style.alignItems = "center";
+  headingWrapper.style.marginTop = "10px";
+
+  const heading = document.createElement("strong");
+  heading.textContent = "Istniejące warstwy";
+
+  const addBtn = document.createElement("span");
+  addBtn.textContent = "+";
+  addBtn.title = "Dodaj nową warstwę";
+  addBtn.style.cursor = "pointer";
+  addBtn.style.marginLeft = "10px";
+  addBtn.style.fontSize = "16px";
+  addBtn.style.userSelect = "none";
+  addBtn.style.padding = "2px 6px";
+  addBtn.style.border = "1px solid #ccc";
+  addBtn.style.borderRadius = "4px";
+  addBtn.style.backgroundColor = "#eee";
+  addBtn.style.color = "#333";
+
+  addBtn.onmouseover = () => { addBtn.style.backgroundColor = "#ddd"; };
+  addBtn.onmouseout = () => { addBtn.style.backgroundColor = "#eee"; };
+
+  addBtn.onclick = () => {
+    const layerId = smallestFreeLayerId++;
+    const newLayerMetadata = { layer_id: layerId, name: `Warstwa ${layerId}` };
+    const box = createLayerBox(newLayerMetadata, smallestFreeLayerId, cleanEditingEnv, layerRightSidebar);
+    layerList.appendChild(box);
+  };
+
+  headingWrapper.appendChild(heading);
+  headingWrapper.appendChild(addBtn);
+  sidebar.appendChild(headingWrapper);
+
+  const layerList = document.createElement("ul");
+  layerList.id = "layer-list";
+  sidebar.appendChild(layerList);
+
+  // Render existing layers
+  if (window.AppState.editedMapMetadata.layers && Array.isArray(window.AppState.editedMapMetadata.layers)) {
+    window.AppState.editedMapMetadata.layers.forEach(layer => {
+      const box = createLayerBox(layer, smallestFreeLayerId, cleanEditingEnv, layerRightSidebar);
+      layerList.appendChild(box);
+      if (layer.layer_id >= smallestFreeLayerId) smallestFreeLayerId = layer.layer_id + 1;
+    });
   }
 
-  if (editing_mode) {
+  // --- DOWNLOAD BUTTON ---
+  const downloadBtn = createButton("Pobierz gotową mapę", () => {
+    // Expand metadata
+    window.AppState.editedMapMetadata.map_id = idInput.value;
+    window.AppState.editedMapMetadata.map_name = nameInput.value;
+    window.AppState.editedMapMetadata.author = authorInput.value;
 
-    let layerCsvData; // Master data structure for CSV export
-    let mapMetadata; // Master metadata dict
+    const mapId = window.AppState.editedMapMetadata.map_id;
 
-    if (loadedData) {
-      // Deep copy and clean up column names by stripping prefix
-      layerCsvData = loadedData["csv"].map(row => {
-        const cleanedRow = { point_id: row.point_id };
-        for (const key in row) {
-          if (key !== "point_id" && key.includes("/")) {
-            const [, layerId] = key.split("/");
-            cleanedRow[layerId] = row[key] === "0" ? 0 : row[key] === "1" ? 1 : row[key];
-          }
-        }
-        return cleanedRow;
-      });
-
-      mapMetadata = loadedData["metadata"];
-    } else {
-      layerCsvData = points.map(p => ({
-        point_id: p.point_id  // Copy just the point_id from the original points
-      }));
-      mapMetadata = { "layers": [] };
-    }
-
-    console.log("layerCsvData", layerCsvData);
-
-    function saveEditedLayer(layerMetadata, selectedIds) {
-      // Remove any existing layer with the same layer_id
-      mapMetadata["layers"] = mapMetadata["layers"].filter(
-        layer => layer.layer_id !== layerMetadata.layer_id
-      );
-
-      // Add the new (edited) layer metadata
-      mapMetadata["layers"].push(layerMetadata);
-
-      // Fill this column: 1 if selected, 0 if not
-      for (const row of layerCsvData) {
-        row[layerMetadata["layer_id"]] = selectedIds.includes(row.point_id) ? 1 : 0;
+    // Rename CSV headers
+    const originalHeaders = Object.keys(window.AppState.editedMapAllLayersCsvData[0]);
+    const renamedHeaders = originalHeaders.map(col => col === "point_id" ? "point_id" : `${mapId}/${col}`);
+    const renamedCsvData = editedMapAllLayersCsvData.map(row => {
+      const renamedRow = {};
+      for (const key of originalHeaders) {
+        renamedRow[key === "point_id" ? "point_id" : `${mapId}/${key}`] = row[key];
       }
-    }
-
-    function getSelectedPointIds(selectedColumn) {
-      return layerCsvData
-        .filter(row => row[selectedColumn] === 1)
-        .map(row => row.point_id);
-    }
-
-    function removeLayer(layerId) {
-      // Remove the layer from mapMetadata.layers
-      mapMetadata["layers"] = mapMetadata["layers"].filter(layer => layer.layer_id !== layerId);
-
-      // Remove the column from each row in layerCsvData
-      for (const row of layerCsvData) {
-        delete row[layerId];
-      }
-    }
-
-    // Holder for the next layer id that should be taken
-    let smallestFreeLayerId = 0
-
-    // BACK BUTTON
-    const backBtn = document.createElement("button");
-    backBtn.textContent = "← Powrót";
-    backBtn.style.marginBottom = "10px";
-    backBtn.id = "back-button";
-    backBtn.onclick = () => {
-      editing_mode = false;
-      renderSidebar(); // Re-render normal view
-      document.getElementById("right-sidebar")?.remove(); // Remove right sidebar if open
-    };
-    sidebar.appendChild(backBtn);
-
-    // === Map metadata inputs ===
-
-    // ID mapy (Map ID) text input box
-    const idLabel = document.createElement("label");
-    idLabel.textContent = "ID mapy";
-    idLabel.style.marginTop = "10px";
-    sidebar.appendChild(idLabel);
-
-    const idInput = document.createElement("input");
-    idInput.type = "text";
-    idInput.id = "map-id-input";
-    idInput.placeholder = "np. XV.1";
-    idInput.style.marginBottom = "8px";
-    idInput.style.width = "100%";
-
-    // Check if "map_id" exists in mapMetadata
-    if (mapMetadata && mapMetadata.hasOwnProperty("map_id")) {
-      idInput.value = mapMetadata.map_id;   // Set input value to map_id
-      delete mapMetadata.map_id;             // Remove map_id from mapMetadata
-    }
-
-    sidebar.appendChild(idInput);
-
-    // Nazwa mapy (Map name) label and input
-    const nameLabel = document.createElement("label");
-    nameLabel.textContent = "Nazwa mapy";
-    sidebar.appendChild(nameLabel);
-
-    const nameInput = document.createElement("input");
-    nameInput.type = "text";
-    nameInput.id = "map-name-input";
-    nameInput.placeholder = "np. Granice dialektów na obszarze AJK";
-    nameInput.style.marginBottom = "8px";
-    nameInput.style.width = "100%";
-
-    // Check and set map_name
-    if (mapMetadata && mapMetadata.hasOwnProperty("map_name")) {
-      nameInput.value = mapMetadata.map_name;
-      delete mapMetadata.map_name;
-    }
-    sidebar.appendChild(nameInput);
-
-    // Autor (Author) label and input
-    const authorLabel = document.createElement("label");
-    authorLabel.textContent = "Autor";
-    sidebar.appendChild(authorLabel);
-
-    const authorInput = document.createElement("input");
-    authorInput.type = "text";
-    authorInput.id = "map-author-input";
-    authorInput.placeholder = "np. Jan Kowalski";
-    authorInput.style.marginBottom = "12px";
-    authorInput.style.width = "100%";
-
-    // Check and set author
-    if (mapMetadata && mapMetadata.hasOwnProperty("author")) {
-      authorInput.value = mapMetadata.author;
-      delete mapMetadata.author;
-    }
-    sidebar.appendChild(authorInput);
-
-    // HEADING + ADD BUTTON
-    const headingWrapper = document.createElement("div");
-    headingWrapper.style.display = "flex";
-    headingWrapper.style.justifyContent = "space-between";
-    headingWrapper.style.alignItems = "center";
-
-    const heading = document.createElement("strong");
-    heading.textContent = "Istniejące warstwy";
-
-    const addBtn = document.createElement("span");
-    addBtn.textContent = "+";
-    addBtn.title = "Dodaj nową warstwę";
-    addBtn.style.cursor = "pointer";
-    addBtn.style.marginLeft = "10px";
-    addBtn.style.fontSize = "16px";
-    addBtn.style.userSelect = "none";
-    addBtn.style.padding = "2px 6px";
-    addBtn.style.border = "1px solid #ccc";
-    addBtn.style.borderRadius = "4px";
-    addBtn.style.backgroundColor = "#eee";
-    addBtn.style.color = "#333";
-    addBtn.style.boxShadow = "1px 1px 2px rgba(0,0,0,0.1)";
-    addBtn.style.transition = "background-color 0.2s";
-
-    addBtn.onmouseover = () => {
-      addBtn.style.backgroundColor = "#ddd";
-    };
-    addBtn.onmouseout = () => {
-      addBtn.style.backgroundColor = "#eee";
-    };
-
-    function renderLayerBox(layerMetadata) {
-      const layerId = layerMetadata.layer_id;
-      if (layerId >= smallestFreeLayerId) {
-        smallestFreeLayerId = layerId + 1;
-      }
-
-      const layerList = document.getElementById("layer-list");
-      const layerName = layerMetadata.name || `Warstwa ${layerId}`;
-
-      const box = document.createElement("div");
-      box.className = "layer-box";
-      box.style.display = "flex";
-      box.style.alignItems = "center";
-      box.style.justifyContent = "space-between";
-      box.style.padding = "6px 10px";
-      box.style.margin = "6px 0";
-      box.style.borderRadius = "4px";
-      box.style.backgroundColor = "";
-      box.style.border = "1px solid black";
-      box.id = `layer-box-${layerId}`;
-      box._layerId = layerId;
-
-      const label = document.createElement("span");
-      label.textContent = layerName;
-      label.style.flex = "1";
-
-      const editIcon = document.createElement("span");
-      editIcon.innerHTML = "✎";
-      editIcon.title = "Edytuj";
-      editIcon.style.cursor = "pointer";
-      editIcon.style.marginLeft = "8px";
-
-      editIcon.onclick = () => {
-        cleanEditingEnv();
-        const preselectedPoints = getSelectedPointIds(layerId);
-        layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints);
-        document.querySelectorAll(".layer-box").forEach(b => b.style.backgroundColor = "");
-        box.style.backgroundColor = "#f8d7da";
-      };
-
-      const deleteIcon = document.createElement("span");
-      deleteIcon.innerHTML = "✕";
-      deleteIcon.title = "Usuń";
-      deleteIcon.style.cursor = "pointer";
-      deleteIcon.style.marginLeft = "8px";
-
-      deleteIcon.onclick = () => {
-        box.remove();
-        removeLayer(layerId);
-        cleanEditingEnv();
-      };
-
-      const controls = document.createElement("div");
-      controls.style.display = "flex";
-      controls.appendChild(editIcon);
-      controls.appendChild(deleteIcon);
-
-      box.appendChild(label);
-      box.appendChild(controls);
-
-      layerList.appendChild(box);
-    }
-
-    addBtn.onclick = () => {
-      const layerId = smallestFreeLayerId++; // assign and increment
-      const newLayerMetadata = { layer_id: layerId, name: `Warstwa ${layerId}` };
-      renderLayerBox(newLayerMetadata);
-    };
-
-    headingWrapper.appendChild(heading);
-    headingWrapper.appendChild(addBtn);
-    sidebar.appendChild(headingWrapper);
-
-    // LAYER LIST
-    const layerList = document.createElement("ul");
-    layerList.id = "layer-list"; // Empty initially
-    sidebar.appendChild(layerList);
-
-    // Render existing layers from loaded metadata
-    if (mapMetadata.layers && Array.isArray(mapMetadata.layers)) {
-      for (const layer of mapMetadata.layers) {
-        renderLayerBox(layer);
-      }
-    }
-
-    // DOWNLOAD BUTTON
-    const downloadBtn = document.createElement("button");
-    downloadBtn.textContent = "Pobierz gotową mapę";
-    downloadBtn.style.backgroundColor = "#007bff";
-    downloadBtn.style.color = "white";
-    downloadBtn.style.border = "none";
-    downloadBtn.style.marginTop = "auto";
-    downloadBtn.id = "download-map-button";
-    sidebar.appendChild(downloadBtn);
-
-    downloadBtn.addEventListener("click", () => {
-      // 1. Expand mapMetadata
-      mapMetadata["map_id"] = idInput.value;
-      mapMetadata["map_name"] = nameInput.value;
-      mapMetadata["author"] = authorInput.value;
-
-      const mapId = mapMetadata["map_id"];
-
-      // 2. Prepare headers
-      const originalHeaders = Object.keys(layerCsvData[0]);
-      const renamedHeaders = originalHeaders.map(col =>
-        col === "point_id" ? "point_id" : `${mapId}/${col}`
-      );
-
-      // 3. Transform data with renamed keys
-      const renamedCsvData = layerCsvData.map(row => {
-        const renamedRow = {};
-        for (const key of originalHeaders) {
-          const newKey = key === "point_id" ? "point_id" : `${mapId}/${key}`;
-          renamedRow[newKey] = row[key];
-        }
-        return renamedRow;
-      });
-
-      // 4. Convert to semicolon-separated CSV
-      const csvRows = renamedCsvData.map(row =>
-        renamedHeaders.map(header => JSON.stringify(row[header] ?? "")).join(";")
-      );
-      const csvContent = [renamedHeaders.join(";"), ...csvRows].join("\n");
-
-      const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const csvUrl = URL.createObjectURL(csvBlob);
-      const csvLink = document.createElement("a");
-      csvLink.href = csvUrl;
-      csvLink.download = "mapa_dane.csv";
-      csvLink.click();
-      URL.revokeObjectURL(csvUrl);
-
-      // 5. Download mapMetadata as JSON
-      const jsonBlob = new Blob([JSON.stringify(mapMetadata, null, 2)], { type: "application/json" });
-      const jsonUrl = URL.createObjectURL(jsonBlob);
-      const jsonLink = document.createElement("a");
-      jsonLink.href = jsonUrl;
-      jsonLink.download = "mapa_metadata.json";
-      jsonLink.click();
-      URL.revokeObjectURL(jsonUrl);
+      return renamedRow;
     });
 
-    cleanMap(); // Clear map for editing mode
-  } else {
-    // Normal (viewing) mode UI
-    const labelSelect = document.createElement("label");
-    labelSelect.setAttribute("for", "map-select");
-    labelSelect.id = "map-label";
-    labelSelect.textContent = "Wybierz mapę:";
-    sidebar.appendChild(labelSelect);
+    // CSV download
+    const csvRows = renamedCsvData.map(row => renamedHeaders.map(h => JSON.stringify(row[h] ?? "")).join(";"));
+    const csvContent = [renamedHeaders.join(";"), ...csvRows].join("\n");
+    const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const csvUrl = URL.createObjectURL(csvBlob);
+    const csvLink = document.createElement("a");
+    csvLink.href = csvUrl;
+    csvLink.download = "mapa_dane.csv";
+    csvLink.click();
+    URL.revokeObjectURL(csvUrl);
 
-    const select = document.createElement("select");
-    select.id = "map-select";
-    sidebar.appendChild(select);
+    // JSON metadata download
+    const jsonBlob = new Blob([JSON.stringify(window.AppState.editedMapMetadata, null, 2)], { type: "application/json" });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const jsonLink = document.createElement("a");
+    jsonLink.href = jsonUrl;
+    jsonLink.download = "mapa_metadata.json";
+    jsonLink.click();
+    URL.revokeObjectURL(jsonUrl);
 
-    const labelAuthor = document.createElement("label");
-    labelAuthor.setAttribute("for", "map-author");
-    labelAuthor.id = "author-label";
-    labelAuthor.textContent = "Autor:";
-    sidebar.appendChild(labelAuthor);
+  }, { backgroundColor: "#007bff", color: "white", border: "none", marginTop: "auto" });
 
-    const authorBox = document.createElement("div");
-    authorBox.id = "map-author";
-    sidebar.appendChild(authorBox);
+  downloadBtn.id = "download-map-button";
+  sidebar.appendChild(downloadBtn);
 
-    const loadMapBtn = document.createElement("button");
-    loadMapBtn.id = "load-map-button";
-    loadMapBtn.textContent = "Załaduj mapę";
-    sidebar.appendChild(loadMapBtn);
+  // Clear map for editing mode
+  cleanMap();
+}
 
-    const newMapBtn = document.createElement("button");
-    newMapBtn.id = "new-map-button";
-    newMapBtn.textContent = "Stwórz nową mapę";
-    sidebar.appendChild(newMapBtn);
+// =========================
+// VIEWING MODE SIDEBAR
+// =========================
+function renderViewingSidebar(sidebar) {
+  // --- ATLAS SELECT ---
+  const atlasLabel = document.createElement("label");
+  atlasLabel.setAttribute("for", "atlas-select");
+  atlasLabel.textContent = "Wybierz atlas:";
+  sidebar.appendChild(atlasLabel);
 
-    loadMapBtn.onclick = () => {
-      // Reset file inputs here:
-      document.getElementById("json-file").value = "";
-      document.getElementById("csv-file").value = "";
-      document.getElementById("load-map-modal").style.display = "block";
-    };
+  const atlasSelect = document.createElement("select");
+  atlasSelect.id = "atlas-select";
+  atlasSelect.className = "select-sidebar";
+  atlasSelect.style.width = "100%";
+  atlasSelect.style.padding = "6px";
+  atlasSelect.style.fontSize = "14px";
+  sidebar.appendChild(atlasSelect);
 
-    // 🔧 REUSABLE LOADING FUNCTION
-    async function loadMapDataFromFiles(jsonFile, csvFile) {
-      if (!jsonFile || !csvFile) {
-        alert("Proszę wybrać pliki JSON i CSV.");
-        return;
-      }
+  const atlasOptions = {
+    "kashubian_atlas": "Atlas Językowy Kaszubszczyzny",
+    "magp_atlas": "Mały Atlas Gwar Polskich"
+  };
 
-      try {
-        // Read JSON
-        const jsonText = await jsonFile.text();
-        const newMetadata = JSON.parse(jsonText);
+  Object.entries(atlasOptions).forEach(([folder, label]) => {
+    const opt = document.createElement("option");
+    opt.value = folder;
+    opt.textContent = label;
+    atlasSelect.appendChild(opt);
+  });
 
-        // Read CSV (assume ; separator)
-        const csvText = await csvFile.text();
-        const newDataRows = d3.dsvFormat(";").parse(csvText);
+  // --- MAP SELECTION ---
+  const labelSelect = document.createElement("label");
+  labelSelect.setAttribute("for", "map-select");
+  labelSelect.id = "map-label";
+  labelSelect.textContent = "Wybierz mapę:";
+  sidebar.appendChild(labelSelect);
 
-        // Close modal
-        document.getElementById("load-map-modal").style.display = "none";
+  const mapSelect = document.createElement("select");
+  mapSelect.id = "map-select";
+  mapSelect.className = "select-sidebar";
+  sidebar.appendChild(mapSelect);
 
-        return {"csv": newDataRows, "metadata": newMetadata};
+  const labelAuthor = document.createElement("label");
+  labelAuthor.setAttribute("for", "map-author");
+  labelAuthor.id = "author-label";
+  labelAuthor.textContent = "Autor:";
+  sidebar.appendChild(labelAuthor);
 
-      } catch (err) {
-        alert("Błąd podczas ładowania danych: " + err.message);
-        console.error(err);
-      }
-    }
+  const authorBox = document.createElement("div");
+  authorBox.id = "map-author";
+  sidebar.appendChild(authorBox);
 
-    // ✅ CREATE MODAL STRUCTURE
-    const modalOverlay = document.createElement("div");
-    modalOverlay.id = "load-map-modal";
+  const loadMapBtn = createButton("Załaduj mapę");
+  const modalElements = createLoadMapModal();
+  attachModalBehavior(loadMapBtn, modalElements);
+  sidebar.appendChild(loadMapBtn);
 
-    // Modal content container
-    const modalContent = document.createElement("div");
-    modalContent.id = "load-map-modal-content";
-
-    // Close button
-    const closeBtn = document.createElement("span");
-    closeBtn.id = "close-modal";
-    closeBtn.innerHTML = "&times;";
-    modalContent.appendChild(closeBtn);
-
-    // Title
-    const title = document.createElement("h3");
-    title.textContent = "Załaduj dane mapy";
-    modalContent.appendChild(title);
-
-    // JSON input
-    const jsonLabel = document.createElement("label");
-    jsonLabel.textContent = "Definicja stylu mapy w formacie JSON:";
-    const jsonInput = document.createElement("input");
-    jsonInput.type = "file";
-    jsonInput.id = "json-file";
-    jsonInput.accept = ".json";
-    modalContent.appendChild(jsonLabel);
-    modalContent.appendChild(jsonInput);
-
-    // CSV input
-    const csvLabel = document.createElement("label");
-    csvLabel.textContent = "CSV z danymi:";
-    const csvInput = document.createElement("input");
-    csvInput.type = "file";
-    csvInput.id = "csv-file";
-    csvInput.accept = ".csv";
-    modalContent.appendChild(csvLabel);
-    modalContent.appendChild(csvInput);
-
-    // Button container with space-between layout
-    const submitWrapper = document.createElement("div");
-    submitWrapper.className = "submit-wrapper";
-    submitWrapper.style.display = "flex";
-    submitWrapper.style.justifyContent = "space-between";
-    submitWrapper.style.alignItems = "center";
-    submitWrapper.style.marginTop = "20px";
-
-    // 🟢 Left container for "Edytuj mapę"
-    const leftWrapper = document.createElement("div");
-
-    // 🔵 Right container for "Wyświetl mapę"
-    const rightWrapper = document.createElement("div");
-
-    // 🟢 Edytuj mapę button
-    const editBtn = document.createElement("button");
-    editBtn.textContent = "Edytuj mapę  ";
-    editBtn.id = "edit-map-btn";
-    editBtn.style.padding = "6px 12px";
-    editBtn.style.fontSize = "14px";
-    editBtn.style.cursor = "pointer";
-    leftWrapper.appendChild(editBtn);
-
-    // 🔵 Wyświetl mapę button
-    const submitBtn = document.createElement("button");
-    submitBtn.id = "submit-load";
-    submitBtn.textContent = "Wyświetl mapę";
-    submitBtn.style.padding = "6px 12px";
-    submitBtn.style.fontSize = "14px";
-    submitBtn.style.cursor = "pointer";
-    rightWrapper.appendChild(submitBtn);
-
-    // Assemble
-    submitWrapper.appendChild(leftWrapper);
-    submitWrapper.appendChild(rightWrapper);
-
-    modalContent.appendChild(submitWrapper);
-
-    // Assemble and append
-    modalOverlay.appendChild(modalContent);
-    document.body.appendChild(modalOverlay);
-
-    // Modal open/close behavior
-    loadMapBtn.onclick = () => {
-      modalOverlay.style.display = "flex";
-    };
-
-    document.addEventListener("click", (e) => {
-      if (e.target.id === "close-modal" || e.target.id === "load-map-modal") {
-        modalOverlay.style.display = "none";
-      }
+  const newMapBtn = createButton("Stwórz nową mapę", () => {
+    window.AppState.editing_mode = true;
+    renderSidebar({
+      csv: createEmptyCsvData(), // your CSV with only point_id
+      metadata: { "layers": []}                   // empty metadata object
     });
+  });
+  sidebar.appendChild(newMapBtn);
 
-    // 📦 Use shared logic in Załaduj
-    submitBtn.onclick = async () => {
-      const jsonFile = document.getElementById("json-file").files[0];
-      const csvFile = document.getElementById("csv-file").files[0];
-      loadedData = await loadMapDataFromFiles(jsonFile, csvFile);
-
-      // Append to metadata
-      metadata.push(loadedData["metadata"]);
-
-      // Create map for fast lookup: point_id → row
-      const newDataMap = new Map();
-      for (const row of loadedData["csv"]) {
-        newDataMap.set(row.point_id, row);
-      }
-
-      // Extend existing data rows
-      for (const row of data) {
-        const newValues = newDataMap.get(row.point_id);
-        if (newValues) {
-          for (const [key, value] of Object.entries(newValues)) {
-            if (key !== "point_id") {
-              row[key] = value;
-            }
-          }
-        }
-      }
-
-      // Reload the sidebar
-      renderSidebar();
-    };
-
-    // ✏️ Use same logic for "Edytuj mapę"
-    editBtn.onclick = async () => {
-      const jsonFile = document.getElementById("json-file").files[0];
-      const csvFile = document.getElementById("csv-file").files[0];
-
-      const loadedData = await loadMapDataFromFiles(jsonFile, csvFile); // ✅ store result
-
-      if (!loadedData) return; // if loading failed
-
-      editing_mode = true;
-      renderSidebar(loadedData); // ✅ now passes real data
-    };
-
-    newMapBtn.onclick = () => {
-      editing_mode = true;
-      renderSidebar();
-    };
-
-    // Re-populate map selection and author if metadata is available
-    if (metadata && Array.isArray(metadata)) {
-      metadata.forEach(entry => {
+  // --- HELPER FUNCTION: Populate map select ---
+  function updateMapSelect() {
+    mapSelect.innerHTML = ""; // clear previous options
+    if (window.AppState.metadata && Array.isArray(window.AppState.metadata)) {
+      window.AppState.metadata.forEach(entry => {
         const opt = document.createElement("option");
         opt.value = entry.map_id;
         opt.textContent = entry.map_id + " " + entry.map_name;
-        select.appendChild(opt);
+        mapSelect.appendChild(opt);
       });
 
-      select.addEventListener("change", () => {
-        const selectedId = select.value;
-        const selectedMeta = metadata.find(m => m.map_id === selectedId);
-
-        if (selectedMeta) {
-          authorBox.textContent = selectedMeta.author || "";
-        }
-
-        drawMap(selectedId, metadata, undefined);
+      mapSelect.addEventListener("change", () => {
+        const selectedId = mapSelect.value;
+        const selectedMeta = window.AppState.metadata.find(m => m.map_id === selectedId);
+        if (selectedMeta) authorBox.textContent = selectedMeta.author || "";
+        displayMap(selectedId, undefined);
       });
 
-      if (metadata.length > 0) {
-        select.value = metadata[0].map_id;
-        authorBox.textContent = metadata[0].author || "";
-        drawMap(metadata[0].map_id, metadata, undefined);
+      // select the first map by default
+      if (window.AppState.metadata.length > 0) {
+        mapSelect.value = window.AppState.metadata[0].map_id;
+        authorBox.textContent = window.AppState.metadata[0].author || "";
+        displayMap(window.AppState.metadata[0].map_id, undefined);
       }
     }
   }
+
+  // --- GLOBAL VARIABLE ---
+  if (window.AppState.selectedAtlas) {
+    window.AppState.selectedAtlas = Object.keys(atlasOptions)[0];
+  }
+  atlasSelect.value = window.AppState.selectedAtlas;
+
+  // initially populate map select
+  updateMapSelect();
+
+  // --- ATLAS CHANGE HANDLER ---
+  atlasSelect.addEventListener("change", async () => {
+    window.AppState.selectedAtlas = atlasSelect.value;
+
+    // define data, points, metadata, clippingGeometry, clipppingGeometryLayer,
+    // and boundingBox attributes of window.AppState with loadAtlas().
+    await loadAtlas();
+    updateMapSelect();
+  });
 }
 
 
@@ -900,6 +487,8 @@ function createDecoratorSelector(decoratorType, items, prechosenOption = "") {
 
 function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
 
+  /////////////////////// Define sidebar style ///////////////////////
+
   document.getElementById("right-sidebar")?.remove();
 
   const rightSidebar = document.createElement("aside");
@@ -916,6 +505,8 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
   rightSidebar.style.borderLeft = "1px solid #ccc";
   rightSidebar.style.boxShadow = "-2px 0 4px rgba(0,0,0,0.1)";
   rightSidebar.style.zIndex = "1000";
+
+  /////////////////////// Define fields for entering layer metadata ///////////////////////
 
   // Layer name
   const nameLabel = document.createElement("label");
@@ -974,7 +565,6 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
   const preselectedKey = layerKeys.find(key => layerMetadata?.hasOwnProperty(key));
   typeSelect.value = preselectedKey ? keys[preselectedKey] : "";
 
-
   // Placeholder for decorator select
   const decoratorContainer = document.createElement("div");
   decoratorContainer.style.marginTop = "16px";
@@ -1017,6 +607,7 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
     const decoratorSelector = createDecoratorSelector(selectedType, items, prechosenOption);
     decoratorContainer.appendChild(decoratorSelector);
 
+    /////////////////////// Logic if layer metadata was defined ///////////////////////
     // Add listener
     function handleDecoratorSelected(e) {
       layerMetadata[selectedType] = e.detail.decoratorName;
@@ -1037,7 +628,10 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
         saveButton.addEventListener("click", () => {
           const selectedIds = layerControl.getSelectedPointIds();
           layerMetadata["name"] = nameInput.value;
-          saveEditedLayer(layerMetadata, selectedIds);
+          saveEditedLayer(
+            layerMetadata,   // the metadata of the layer being edited
+            selectedIds      // array of selected point IDs
+          );
 
           cleanEditingEnv();
 
@@ -1071,7 +665,7 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
       }
 
       // Draw the map and add the editing toolkit
-      const layerControl = drawMap(undefined, undefined, preselectedPoints = preselectedPoints);
+      const layerControl = drawEditMap(undefined, preselectedPoints = preselectedPoints);
     }
 
     decoratorSelector.addEventListener("decoratorSelected", handleDecoratorSelected);
@@ -1102,6 +696,112 @@ function layerRightSidebar(saveEditedLayer, layerMetadata, preselectedPoints) {
 
 ////////////////////////////////////////////////////// Logic for map loading ///////////////////////////////////////////////////////////////
 
+// ==============================
+// Load Map Modal Creation
+// ==============================
+function createLoadMapModal() {
+  const modalOverlay = document.createElement("div");
+  modalOverlay.id = "load-map-modal";
+  modalOverlay.style.display = "none"; // initially hidden
+  modalOverlay.style.position = "fixed";
+  modalOverlay.style.top = 0;
+  modalOverlay.style.left = 0;
+  modalOverlay.style.width = "100%";
+  modalOverlay.style.height = "100%";
+  modalOverlay.style.backgroundColor = "rgba(0,0,0,0.5)";
+  modalOverlay.style.justifyContent = "center";
+  modalOverlay.style.alignItems = "center";
+  modalOverlay.style.zIndex = 1000;
+
+  const modalContent = document.createElement("div");
+  modalContent.id = "load-map-modal-content";
+  modalContent.style.backgroundColor = "white";
+  modalContent.style.padding = "20px";
+  modalContent.style.borderRadius = "6px";
+  modalContent.style.width = "400px";
+  modalContent.style.maxWidth = "90%";
+  modalContent.style.display = "flex";
+  modalContent.style.flexDirection = "column";
+  modalContent.style.gap = "12px";
+
+  // Close button
+  const closeBtn = document.createElement("span");
+  closeBtn.id = "close-modal";
+  closeBtn.innerHTML = "&times;";
+  closeBtn.style.alignSelf = "flex-end";
+  closeBtn.style.cursor = "pointer";
+
+  // Title
+  const title = document.createElement("h3");
+  title.textContent = "Załaduj dane mapy";
+
+  // JSON input
+  const jsonInput = createFileInput("Definicja stylu mapy w formacie JSON:", "json-file", ".json");
+
+  // CSV input
+  const csvInput = createFileInput("CSV z danymi:", "csv-file", ".csv");
+
+  // Add spacer
+  const spacer = document.createElement("div");
+  spacer.style.height = "12px"; // or any value
+
+  // Submit buttons
+  const { editBtn, submitBtn } = createModalButtons();
+
+  // Assemble modal
+  modalContent.append(closeBtn, title, jsonInput.wrapper, csvInput.wrapper, spacer, createModalButtons().wrapper);
+  modalOverlay.appendChild(modalContent);
+  document.body.appendChild(modalOverlay);
+
+  // Close modal behavior
+  closeBtn.onclick = () => (modalOverlay.style.display = "none");
+  modalOverlay.onclick = e => { if (e.target === modalOverlay) modalOverlay.style.display = "none"; };
+
+  return { modalOverlay, jsonInput, csvInput, editBtn, submitBtn };
+}
+
+// ==============================================
+// Attach behavior to load map modal buttons
+// ==============================================
+function attachModalBehavior(loadMapBtn, modalElements) {
+  const { modalOverlay, jsonInput, csvInput, editBtn, submitBtn } = modalElements;
+
+  // Open modal (attach to main button outside)
+  loadMapBtn.onclick = () => {
+    modalOverlay.style.display = "flex";
+    jsonInput.input.value = "";
+    csvInput.input.value = "";
+  };
+
+  submitBtn.onclick = async () => {
+    const loadedData = await loadExternalMapFiles(jsonInput.input.files[0], csvInput.input.files[0]);
+    if (!loadedData) return;
+
+    window.AppState.metadata.push(loadedData.metadata);
+
+    // Merge CSV data into existing `data`
+    const newDataMap = new Map(loadedData.csv.map(row => [row.point_id, row]));
+    for (const row of data) {
+      const newValues = newDataMap.get(row.point_id);
+      if (newValues) {
+        for (const [k, v] of Object.entries(newValues)) {
+          if (k !== "point_id") row[k] = v;
+        }
+      }
+    }
+
+    renderSidebar();
+    modalOverlay.style.display = "none";
+  };
+
+  editBtn.onclick = async () => {
+    const loadedData = await loadExternalMapFiles(jsonInput.input.files[0], csvInput.input.files[0]);
+    if (!loadedData) return;
+    window.AppState.editing_mode = true;
+    renderSidebar(loadedData);
+    modalOverlay.style.display = "none";
+  };
+}
 
 ////////////////////////////////////////////////////// Logic for map showing ///////////////////////////////////////////////////////////////
 
@@ -1174,10 +874,7 @@ function createLegendIcon(decorator_type, decorator_name, asHTML = false) {
 
 /**************************** Define Legend ****************************/
 
-let symbolLayer;
-let voronoiLayers;
-
-function updateLegend(legendList, mapName, voronoiLayers, map) {
+function updateLegend(legendList, mapName) {
   const container = document.querySelector('.legend-container');
   container.innerHTML = "";
 
@@ -1217,14 +914,14 @@ function updateLegend(legendList, mapName, voronoiLayers, map) {
     let visible = true;
 
     item.addEventListener("click", () => {
-      const layers = voronoiLayers[entry.layer_id];
+      const layers = window.AppState.voronoiLayers[entry.layer_id];
       if (!layers) return;
 
       const { borders = [], areaFills = [] } = layers;
       const allLayers = [...borders, ...areaFills];
 
       allLayers.forEach(layer => {
-        visible ? map.removeLayer(layer) : map.addLayer(layer);
+        visible ? window.AppState.map.removeLayer(layer) : window.AppState.map.addLayer(layer);
       });
 
       visible = !visible;
@@ -1237,43 +934,55 @@ function updateLegend(legendList, mapName, voronoiLayers, map) {
 
 /**************************** Draw Map ****************************/
 
-function drawMap(mapId = "", metadata=[], preselectedPoints = []) {
+function displayMap(mapId = "", preselectedPoints = []) {
 
   cleanMap();
 
-  if (mapId != "") {
-    const mapMeta = metadata.find(m => m.map_id === mapId);
+  if (mapId == "") {
+    console.log("Error. No mapId provided");
+    return { error: "No mapId provided" };
+  }
+  else {
+    const mapMeta = window.AppState.metadata.find(m => m.map_id === mapId);
     if (!mapMeta) return;
 
     const legendList = mapMeta.layers || [];
 
     /**************************** Define features list with map data ****************************/
 
-    const features = loadFeatures(mapId, legendList);
+    const features = loadPointCoordsWithData(mapId, legendList);
 
     /**************************** Draw data on the map ****************************/
 
-    // Add symbols to the map
-    symbolLayer = addSymbolLayerToMap(features, map);
+    // Add symbols to the map. Modifies window.AppState.symbolLayer.
+    addSymbolLayerToMap(features);
 
-    // Draw the borders and area fills using Voronoi diagram approach
-    voronoiLayers = drawVoronoiLayers(features, legendList, map, clippingGeometry);
+    /**
+     * Draw the borders and area fills using Voronoi diagram approach.
+     *
+     * Global variables updated:
+     * - window.AppState.voronoiLayers
+     * - voronoi polylines added to window.AppState.map (drawVoronoiBorders)
+     * - Voronoi area fills added to window.AppState.map (drawVoronoiAreaFills)
+     */
+    drawVoronoiLayers(features, legendList);
 
     // Update the legend to show the decorators and descriptions
-    updateLegend(legendList, mapMeta.map_name, voronoiLayers, map);
+    updateLegend(legendList, mapMeta.map_name);
     
     return {"layer": symbolLayer}
   }
-  else {
-    const features = loadFeatures();
+}
+
+function drawEditMap(mapId = "", metadata=[], preselectedPoints = []) {
+  const features = loadPointCoordsWithData();
 
     // Add symbols to the map
-    const layerControl = addEmptyPointsLayer(features, map, preselectedPoints)
+    const layerControl = addEmptyPointsLayer(features, preselectedPoints)
 
-    symbolLayer = layerControl.layer
+    window.AppState.symbolLayer = layerControl.layer
 
     return layerControl
-  }
 }
 
 ///////////////////////////////////////////////////// Initialize Everything //////////////////////////////////////////////////////////
