@@ -2,8 +2,8 @@ import { displayMap } from "../map-display/mapDisplayUtils.js";
 import { createButton, createSidebarBackButton, createLabeledTextInput } from "./elementDefinitions.js";
 import { createLoadMapModal } from "./loadMapModal.js";
 import { cleanMap, cleanLayerData, cleanEditingEnv, resetEditedMapData } from "../../cleaning.js";
-import { createEmptyCsvData, initMapMetadata, mergeCsvDataIntoApp } from "../../io.js";
-import { renderLayersSidebar } from "./LeftEditSidebar.js";
+import { loadAtlas, createEmptyCsvData, initMapMetadata, mergeCsvDataIntoApp } from "../../io.js";
+import { renderLayersSidebar } from "./leftEditSidebar.js";
 
 ////////////////////////////////////////////////////// Logic for sidebar rendering //////////////////////////////////////////////////////////////
 
