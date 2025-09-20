@@ -1,3 +1,5 @@
+import { createEmptyCsvData } from "./io.js";
+
 /**************************** Function for total map cleaning ****************************/
 export function cleanMap() {
 

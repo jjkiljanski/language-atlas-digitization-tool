@@ -1,5 +1,6 @@
 import { getSymbol } from './symbolLoader.js';
-import { areaFillStyles, borderStyles } from './styleConfig.js';
+import { borderStyles } from './borderFillStyleConfig.js';
+import { areaFillStyles } from './areaFillStyleConfig.js';
 
 /**
  * Adds the clipping geometry layer to the Leaflet map.
@@ -533,10 +534,9 @@ export function cleanPointSelect() {
  * Removing the entry also resets the point color to grey.
  *
  * @param {Array} features - Array of GeoJSON Feature objects with "point_id" and coordinates.
- * @param {L.Map} map - The Leaflet map instance to add the layer to.
  * @returns {L.GeoJSON} - The Leaflet GeoJSON layer added to the map.
  */
-export function addEmptyPointsLayer(features, map, preselectedPoints) {
+export function addEditPointsLayer(features, preselectedPoints) {
   const selectedPoints = new Map();    // point_id -> { marker, box, active }
   const tempSelectedPoints = new Set(); // point_ids currently rectangle-selected
   const allMarkers = new Map();         // point_id -> marker
@@ -671,7 +671,7 @@ export function addEmptyPointsLayer(features, map, preselectedPoints) {
     }
   });
 
-  geoLayer.addTo(map);
+  geoLayer.addTo(window.AppState.map);
 
   const drawControl = new L.Control.Draw({
     draw: {
@@ -684,12 +684,12 @@ export function addEmptyPointsLayer(features, map, preselectedPoints) {
     },
     edit: false
   });
-  map.addControl(drawControl);
+  window.AppState.map.addControl(drawControl);
 
   // Save reference for next calls
-  map._drawControl = drawControl;
+  window.AppState.map._drawControl = drawControl;
 
-  map.on(L.Draw.Event.CREATED, function (e) {
+  window.AppState.map.on(L.Draw.Event.CREATED, function (e) {
     const layer = e.layer;
     const bounds = layer.getBounds();
 

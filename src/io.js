@@ -1,11 +1,11 @@
-import { addClippingGeometry, findBoundingBox} from './src/drawingUtils.js';
+import { addClippingGeometry, findBoundingBox} from './ui/map-display/mapDisplayUtils.js';
 
 // --- ATLAS CHANGE HANDLER ---
 // This function uses the currently selected atlas (window.AppState.selectedAtlas) to load
 // and define data, points, metadata, clippingGeometry, clipppingGeometryLayer,
 // and boundingBox attributes of window.AppState.
 export async function loadAtlas() {
-  folder = window.AppState.selectedAtlas;
+  const folder = window.AppState.selectedAtlas;
   try {
     function noCache(url) {
       return `${url}?_=${Date.now()}`;
@@ -134,9 +134,9 @@ export function initMapMetadata(loadedData) {
   return loadedData ? loadedData.metadata : { layers: [] };
 }
 
-export function createEmptyCsvData() {
-  return window.AppState.data.map(row => ({ point_id: row.point_id }));
-}
+  export function createEmptyCsvData() {
+    return window.AppState.data.map(row => ({ point_id: row.point_id }));
+  }
 
 // ==============================
 // Load external map files
@@ -157,5 +157,31 @@ export async function loadExternalMapFiles(jsonFile, csvFile) {
     alert("Błąd podczas ładowania danych: " + err.message);
     console.error(err);
     return null;
+  }
+}
+
+/**
+ * Merges newly loaded CSV data into the main AppState.data
+ * Matches rows by point_id and updates existing rows with new values
+ * @param {Array<Object>} newCsvData - Array of rows from the loaded CSV
+ */
+export function mergeCsvDataIntoApp(newCsvData) {
+  if (!Array.isArray(window.AppState.data)) {
+    window.AppState.data = [];
+  }
+
+  // Build a Map of new data by point_id for fast lookup
+  const newDataMap = new Map(newCsvData.map(row => [row.point_id, row]));
+
+  // Merge values into existing data
+  for (const row of window.AppState.data) {
+    const newValues = newDataMap.get(row.point_id);
+    if (newValues) {
+      for (const [key, value] of Object.entries(newValues)) {
+        if (key !== "point_id") {
+          row[key] = value;
+        }
+      }
+    }
   }
 }
