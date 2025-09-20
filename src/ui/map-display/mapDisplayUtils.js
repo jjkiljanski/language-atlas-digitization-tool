@@ -2,6 +2,10 @@ import { getSymbol } from './symbolLoader.js';
 import { borderStyles } from './borderFillStyleConfig.js';
 import { areaFillStyles } from './areaFillStyleConfig.js';
 
+import { cleanMap } from '../../cleaning.js';
+import { loadPointCoordsWithData } from '../../io.js';
+import { updateLegend } from '../components/legend.js';
+
 /**
  * Adds the clipping geometry layer to the Leaflet map.
  * 
@@ -769,4 +773,44 @@ export function addEditPointsLayer(features, preselectedPoints) {
     getSelectedPointIds: () => Array.from(selectedPoints.keys()),
     getSelectedPointsMap: () => selectedPoints,
   };
+}
+
+
+/**************************** Draw Map ****************************/
+export function displayMap(mapId = "", preselectedPoints = []) {
+
+  cleanMap();
+
+  if (mapId == "") {
+    console.log("Error. No mapId provided");
+    return { error: "No mapId provided" };
+  }
+  else {
+    const mapMeta = window.AppState.metadata.find(m => m.map_id === mapId);
+    if (!mapMeta) return;
+
+    const legendList = mapMeta.layers || [];
+
+    /**************************** Define features list with map data ****************************/
+
+    const features = loadPointCoordsWithData(mapId, legendList);
+
+    /**************************** Draw data on the map ****************************/
+
+    // Add symbols to the map. Modifies window.AppState.symbolLayer.
+    addSymbolLayerToMap(features);
+
+    /**
+     * Draw the borders and area fills using Voronoi diagram approach.
+     *
+     * Global variables updated:
+     * - window.AppState.voronoiLayers
+     * - voronoi polylines added to window.AppState.map (drawVoronoiBorders)
+     * - Voronoi area fills added to window.AppState.map (drawVoronoiAreaFills)
+     */
+    drawVoronoiLayers(features, legendList);
+
+    // Update the legend to show the decorators and descriptions
+    updateLegend(legendList, mapMeta.map_name);
+  }
 }
